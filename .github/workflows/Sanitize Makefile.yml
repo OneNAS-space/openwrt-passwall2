@@ -14,7 +14,7 @@ jobs:
   sanitize:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@main
 
       - name: Remove unwanted deps from LUCI_DEPENDS
         run: |
