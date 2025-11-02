@@ -14,6 +14,10 @@ on:
       - '!**/.github/**'
   repository_dispatch:
   workflow_dispatch:
+  workflow_run:        # Sanitize Makefile 成功后触发
+    workflows: ["Sanitize Makefile"]
+    types:
+      - completed
 
 env:
   TZ: Asia/Shanghai
@@ -27,6 +31,10 @@ env:
 jobs:
   job_check:
     name: Check Version
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.actor != 'github-actions[bot']) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     outputs:
       passwall2_version: ${{ steps.check_version.outputs.latest_version }}
