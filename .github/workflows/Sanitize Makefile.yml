@@ -27,7 +27,8 @@ jobs:
             for dep in xray-core v2ray-geoip v2ray-geosite; do
               if grep -q "\+$dep" "$f"; then
                 echo "Removed +$dep from $f"
-                sed -i "s/[[:space:]]\+$dep\([[:space:]]\+\)\?//g" "$f"
+                sed -i "s/^\([[:space:]]*\)+$dep[[:space:]]*/\1/" "$f"
+                sed -i "s/ +$dep//g" "$f"
               fi
             done
 
