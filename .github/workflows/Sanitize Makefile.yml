@@ -24,20 +24,12 @@ jobs:
             echo "Processing $f"
             before=$(md5sum "$f")
 
-            if grep -q '\+xray-core' "$f"; then
-              echo "Removed +xray-core from $f"
-              sed -i 's/\(^[[:space:]]*\)\+xray-core/\1/g' "$f"
-            fi
-
-            if grep -q '\+v2ray-geoip' "$f"; then
-              echo "Removed +v2ray-geoip from $f"
-              sed -i 's/\(^[[:space:]]*\)\+v2ray-geoip/\1/g' "$f"
-            fi
-
-            if grep -q '\+v2ray-geosite' "$f"; then
-              echo "Removed +v2ray-geosite from $f"
-              sed -i 's/\(^[[:space:]]*\)\+v2ray-geosite/\1/g' "$f"
-            fi
+            for dep in xray-core v2ray-geoip v2ray-geosite; do
+              if grep -q "\+$dep" "$f"; then
+                echo "Removed +$dep from $f"
+                sed -i "s/[[:space:]]\+$dep[[:space:]]\?//g" "$f"
+              fi
+            done
 
             after=$(md5sum "$f")
             if [ "$before" != "$after" ]; then
