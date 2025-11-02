@@ -29,7 +29,9 @@ PKG_CONFIG_DEPENDS:= \
 
 LUCI_TITLE:=LuCI support for PassWall 2
 LUCI_PKGARCH:=all
- +geoview +v2ray-geoip +v2ray-geosite \
+LUCI_DEPENDS:=+coreutils +coreutils-base64 +coreutils-nohup +curl \
+	+ip-full +libuci-lua +lua +luci-compat +luci-lib-jsonc +resolveip +tcping \
+	+xray-core +geoview +v2ray-geoip +v2ray-geosite \
 	+unzip \
 	+PACKAGE_$(PKG_NAME)_INCLUDE_IPv6_Nat:ip6tables-mod-nat
 
