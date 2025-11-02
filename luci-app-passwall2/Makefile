@@ -1,5 +1,5 @@
 # Copyright (C) 2022-2025 xiaorouji
-#
+# test
 # This is free software, licensed under the GNU General Public License v3.
 
 include $(TOPDIR)/rules.mk
