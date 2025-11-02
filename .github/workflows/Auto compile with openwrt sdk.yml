@@ -33,7 +33,7 @@ jobs:
     name: Check Version
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.actor != 'github-actions[bot']) ||
+      (github.event_name == 'push' && github.actor != 'github-actions[bot]') ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     outputs:
