@@ -22,25 +22,29 @@ jobs:
           changed=0
           for f in $(git ls-files '**/Makefile'); do
             echo "Processing $f"
-            echo "--- Before ---"
-            grep LUCI_DEPENDS "$f" || echo "(no LUCI_DEPENDS line found)"
-
             before=$(md5sum "$f")
-            sed -i \
-              -e 's/ +xray-core//g' \
-              -e 's/ +v2ray-geoip//g' \
-              -e 's/ +v2ray-geosite//g' \
-              "$f"
+
+            if grep -q '\+xray-core' "$f"; then
+              echo "Removed +xray-core from $f"
+              sed -i 's/[[:space:]]\{0,1\}+xray-core//g' "$f"
+            fi
+
+            if grep -q '\+v2ray-geoip' "$f"; then
+              echo "Removed +v2ray-geoip from $f"
+              sed -i 's/[[:space:]]\{0,1\}+v2ray-geoip//g' "$f"
+            fi
+
+            if grep -q '\+v2ray-geosite' "$f"; then
+              echo "Removed +v2ray-geosite from $f"
+              sed -i 's/[[:space:]]\{0,1\}+v2ray-geosite//g' "$f"
+            fi
+
             after=$(md5sum "$f")
-
-            echo "--- After ---"
-            grep LUCI_DEPENDS "$f" || echo "(no LUCI_DEPENDS line found)"
-
             if [ "$before" != "$after" ]; then
-              echo "Sanitized $f"
               changed=1
             fi
           done
+          
           if [ $changed -eq 0 ]; then
             echo "No unwanted deps found"
           fi
