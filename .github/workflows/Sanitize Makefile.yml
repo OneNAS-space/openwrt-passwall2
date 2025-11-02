@@ -1,0 +1,48 @@
+name: Sanitize Makefile
+
+on:
+  push:
+    paths:
+      - '**/Makefile'
+  pull_request:
+    paths:
+      - '**/Makefile'
+permissions:
+  contents: write
+  
+jobs:
+  sanitize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Remove unwanted deps from LUCI_DEPENDS
+        run: |
+          changed=0
+          for f in $(git ls-files '**/Makefile'); do
+            echo "Processing $f"
+            before=$(md5sum "$f")
+            sed -i '/^LUCI_DEPENDS/ s/ \+xray-core//g; \
+                    /^LUCI_DEPENDS/ s/ \+v2ray-geoip//g; \
+                    /^LUCI_DEPENDS/ s/ \+v2ray-geosite//g' "$f"
+            after=$(md5sum "$f")
+            if [ "$before" != "$after" ]; then
+              echo "Sanitized $f"
+              changed=1
+            fi
+          done
+          if [ $changed -eq 0 ]; then
+            echo "No unwanted deps found"
+          fi
+
+      - name: Show diff
+        run: git diff --color
+
+      - name: Commit changes
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add '**/Makefile'
+          git commit -m "ci: sanitize LUCI_DEPENDS in Makefile" || echo "No changes to commit"
+          git push
