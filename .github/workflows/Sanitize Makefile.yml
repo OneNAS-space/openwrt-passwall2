@@ -1,6 +1,7 @@
 name: Sanitize Makefile
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - '**/Makefile'
@@ -22,9 +23,11 @@ jobs:
           for f in $(git ls-files '**/Makefile'); do
             echo "Processing $f"
             before=$(md5sum "$f")
-            sed -i '/^LUCI_DEPENDS/ s/ \+xray-core//g; \
-                    /^LUCI_DEPENDS/ s/ \+v2ray-geoip//g; \
-                    /^LUCI_DEPENDS/ s/ \+v2ray-geosite//g' "$f"
+            sed -i \
+              -e '/^LUCI_DEPENDS/ s/ \+xray-core//g' \
+              -e '/^LUCI_DEPENDS/ s/ \+v2ray-geoip//g' \
+              -e '/^LUCI_DEPENDS/ s/ \+v2ray-geosite//g' \
+              "$f"
             after=$(md5sum "$f")
             if [ "$before" != "$after" ]; then
               echo "Sanitized $f"
