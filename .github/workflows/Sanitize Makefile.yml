@@ -26,11 +26,11 @@ jobs:
             grep LUCI_DEPENDS "$f" || echo "(no LUCI_DEPENDS line found)"
 
             before=$(md5sum "$f")
-            sed -i \
-              -e '/^[[:space:]]*LUCI_DEPENDS/ s/\+xray-core//g' \
-              -e '/^[[:space:]]*LUCI_DEPENDS/ s/\+v2ray-geoip//g' \
-              -e '/^[[:space:]]*LUCI_DEPENDS/ s/\+v2ray-geosite//g' \
-              "$f"
+            perl -0777 -pi -e '
+              s/(LUCI_DEPENDS:=.*?)(\s*\\\s*\n\s*\+\s*xray-core)//s;
+              s/(LUCI_DEPENDS:=.*?)(\s*\\\s*\n\s*\+\s*v2ray-geoip)//s;
+              s/(LUCI_DEPENDS:=.*?)(\s*\\\s*\n\s*\+\s*v2ray-geosite)//s;
+            ' "$f"
             after=$(md5sum "$f")
 
             echo "--- After ---"
