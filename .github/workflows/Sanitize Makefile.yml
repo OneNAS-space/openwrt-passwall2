@@ -22,13 +22,20 @@ jobs:
           changed=0
           for f in $(git ls-files '**/Makefile'); do
             echo "Processing $f"
+            echo "--- Before ---"
+            grep LUCI_DEPENDS "$f" || echo "(no LUCI_DEPENDS line found)"
+
             before=$(md5sum "$f")
             sed -i \
-              -e '/^LUCI_DEPENDS/ s/ \+xray-core//g' \
-              -e '/^LUCI_DEPENDS/ s/ \+v2ray-geoip//g' \
-              -e '/^LUCI_DEPENDS/ s/ \+v2ray-geosite//g' \
+              -e '/^[[:space:]]*LUCI_DEPENDS/ s/\+xray-core//g' \
+              -e '/^[[:space:]]*LUCI_DEPENDS/ s/\+v2ray-geoip//g' \
+              -e '/^[[:space:]]*LUCI_DEPENDS/ s/\+v2ray-geosite//g' \
               "$f"
             after=$(md5sum "$f")
+
+            echo "--- After ---"
+            grep LUCI_DEPENDS "$f" || echo "(no LUCI_DEPENDS line found)"
+
             if [ "$before" != "$after" ]; then
               echo "Sanitized $f"
               changed=1
