@@ -200,7 +200,7 @@ jobs:
           files: ${{ env.FIRMWARE }}/passwall2/*.ipk
 
       - name: Checkout custom-packages repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: OneNAS-space/custom-packages
           token: ${{ secrets.CUSTOM_PACKAGES_TOKEN }}
