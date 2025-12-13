@@ -116,7 +116,7 @@ jobs:
           ref: ${{ github.ref_name }}
 
       - name: Cache OpenWrt dl
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: sdk/dl
           key: ${{ runner.os }}-openwrt-dl-${{ env.SDK_VER }}
