@@ -25,7 +25,7 @@ env:
   packages: Jackie264/openwrt-passwall-packages
   SDK_VER: "24.10"
   LUCI_VER: "24.10"
-  SDK_URL: "https://downloads.openwrt.org/releases/24.10.4/targets/x86/64/openwrt-sdk-24.10.4-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
+  SDK_URL: "https://downloads.openwrt.org/releases/24.10.5/targets/x86/64/openwrt-sdk-24.10.5-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
   GH_TOKEN_ORG: ${{ github.token }}
 
 jobs:
