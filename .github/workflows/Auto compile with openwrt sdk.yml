@@ -82,7 +82,7 @@ jobs:
 
 
   job_build_passwall2:
-    name: Build luci-app-passwall2
+    name: Build for ${{ matrix.ow_ver }} / ${{ matrix.ext }}
     needs: job_check
     if: needs.job_check.outputs.has_update == 'true'
     runs-on: ubuntu-latest
