@@ -14,7 +14,7 @@ on:
       - '!**/.github/**'
   repository_dispatch:
   workflow_dispatch:
-  workflow_run:        # Sanitize Makefile 成功后触发
+  workflow_run:
     workflows: ["Sanitize Makefile"]
     types:
       - completed
@@ -23,9 +23,6 @@ env:
   TZ: Asia/Shanghai
   passwall2: ${{ github.repository }}
   packages: Jackie264/openwrt-passwall-packages
-  SDK_VER: "24.10"
-  LUCI_VER: "24.10"
-  SDK_URL: "https://downloads.openwrt.org/releases/24.10.5/targets/x86/64/openwrt-sdk-24.10.5-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
   GH_TOKEN_ORG: ${{ github.token }}
 
 jobs:
@@ -42,7 +39,7 @@ jobs:
       prerelease: ${{ steps.check_version.outputs.prerelease }}
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
@@ -85,12 +82,20 @@ jobs:
 
 
   job_build_passwall2:
-    name: Build luci-app-passwall2
+    name: Build for ${{ matrix.ow_ver }} / ${{ matrix.ext }}
     needs: job_check
     if: needs.job_check.outputs.has_update == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      matrix:
+        include:
+          - ow_ver: "24.10"
+            sdk_url: "https://downloads.openwrt.org/releases/24.10.5/targets/x86/64/openwrt-sdk-24.10.5-x86-64_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
+            ext: "ipk"
+          - ow_ver: "25.12"
+            sdk_url: "https://downloads.openwrt.org/releases/25.12.0/targets/x86/64/openwrt-sdk-25.12.0-x86-64_gcc-14.3.0_musl.Linux-x86_64.tar.zst"
+            ext: "apk"
 
     steps:
       - name: Install packages
@@ -110,7 +115,7 @@ jobs:
           sudo -E apt-get -qq clean
 
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
@@ -119,31 +124,24 @@ jobs:
         uses: actions/cache@v5
         with:
           path: sdk/dl
-          key: ${{ runner.os }}-openwrt-dl-${{ env.SDK_VER }}
+          key: ${{ runner.os }}-openwrt-dl-${{ matrix.ow_ver }}-${{ hashFiles('**/Makefile') }}
+          restore-keys: |
+            ${{ runner.os }}-openwrt-dl-${{ matrix.ow_ver }}-
 
-      - name: Initialization environment
-        if: steps.cache-sdk.outputs.cache-hit != 'true'
+      - name: Initialization SDK
         run: |
-          wget ${{ env.SDK_URL }}
-          file_name=$(echo ${{ env.SDK_URL }} | awk -F/ '{print $NF}')
+          wget -q ${{ matrix.sdk_url }} -O sdk.tar.zst
           mkdir -p sdk
-          if [[ $file_name == *.tar.xz ]]; then
-            tar -xJf $file_name -C ./sdk --strip-components=1
-          elif [[ $file_name == *.tar.zst ]]; then
-            tar --zstd -x -f $file_name -C ./sdk --strip-components=1
-          else
-            echo "Unsupported file format: $file_name"
-            exit 1
-          fi
+          tar --zstd -x -f sdk.tar.zst -C ./sdk --strip-components=1
           cd sdk
 
           cat > feeds.conf.default << EOF
           src-git passwall2 https://github.com/${{ env.passwall2 }}.git;${{ github.ref_name }}
-          src-git base https://github.com/openwrt/openwrt.git;openwrt-${{ env.SDK_VER }}
-          src-git packages https://github.com/openwrt/packages.git;openwrt-${{ env.SDK_VER }}
-          src-git luci https://github.com/openwrt/luci.git;openwrt-${{ env.LUCI_VER }}
-          src-git routing https://github.com/openwrt/routing.git;openwrt-${{ env.SDK_VER }}
-          src-git telephony https://github.com/openwrt/telephony.git;openwrt-${{ env.SDK_VER }}
+          src-git base https://github.com/openwrt/openwrt.git;openwrt-${{ matrix.ow_ver }}
+          src-git packages https://github.com/openwrt/packages.git;openwrt-${{ matrix.ow_ver }}
+          src-git luci https://github.com/openwrt/luci.git;openwrt-${{ matrix.ow_ver }}
+          src-git routing https://github.com/openwrt/routing.git;openwrt-${{ matrix.ow_ver }}
+          src-git telephony https://github.com/openwrt/telephony.git;openwrt-${{ matrix.ow_ver }}
           EOF
           
           ./scripts/feeds update -a
@@ -182,22 +180,22 @@ jobs:
           make defconfig
           echo "make package/luci-app-passwall2/{clean,compile} -j$(nproc)"
           make package/luci-app-passwall2/{clean,compile} -j$(nproc) V=s
-          mv bin/packages/x86_64/passwall2/ ../
+          mkdir -p ../artifacts
+          find bin/packages/ -type f -name "*passwall2*.${{ matrix.ext }}" -exec cp {} ../artifacts/ \;
           make clean
           rm .config .config.old
           rm -rf feeds/passwall2 feeds/passwall2.*
           cd ..
           echo "status=success" >> $GITHUB_OUTPUT
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
 
-      - name: Upload passwall2 ipks to release
+      - name: Upload to Release
         uses: softprops/action-gh-release@v2
         if: steps.compile.outputs.status == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{needs.job_check.outputs.passwall2_version}}
-          files: ${{ env.FIRMWARE }}/passwall2/*.ipk
+          tag_name: ${{ needs.job_check.outputs.passwall2_version }}
+          files: artifacts/*.${{ matrix.ext }}
 
       - name: Checkout custom-packages repo
         uses: actions/checkout@v6
@@ -206,22 +204,34 @@ jobs:
           token: ${{ secrets.CUSTOM_PACKAGES_TOKEN }}
           path: custom-packages
 
-      - name: Update luci artifacts
+      - name: Update custom-packages repo
         run: |
-          mkdir -p custom-packages/luci
+          set -e
+          CURRENT_PKG="luci-app-passwall2"
           
-          find ./passwall2 -type f -name "luci-app*.ipk" | while read -r f; do
-            base=$(basename "$f")
-            pkgname=$(echo "$base" | sed -E 's/^([^_]+)_.*$/\1/')
-            echo "Cleaning old versions of $pkgname"
-            rm -f custom-packages/luci/${pkgname}_*.ipk
-            cp "$f" custom-packages/luci/
-          done
-          ls -la custom-packages/luci/
-          echo "PKG_NAME=${{ github.event.repository.name }}" >> "$GITHUB_ENV"
+          mkdir -p custom-packages/24.10/luci
+          mkdir -p custom-packages/25.12/luci
+          
+          if [ "${{ matrix.ow_ver }}" == "24.10" ]; then
+            echo "Cleaning old IPKs for 24.10..."
+            rm -f custom-packages/24.10/luci/${CURRENT_PKG}_*.ipk
+            cp artifacts/*.ipk custom-packages/24.10/luci/
+          else
+            echo "Cleaning old APKs for 25.12..."
+            rm -f custom-packages/25.12/luci/${CURRENT_PKG}-*.apk
+            cp artifacts/*.apk custom-packages/25.12/luci/
+          fi
+
           cd custom-packages
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add luci/
-          git commit -m "Update to - v${{ needs.job_check.outputs.passwall2_version }}" || echo "No changes"
-          git push
+          
+          git add 24.10/luci/ 25.12/luci
+          
+          for i in {1..5}; do
+            git commit -m "Update $CURRENT_PKG to v${{ needs.job_check.outputs.passwall2_version }}" && \
+            git pull --rebase origin main && \
+            git push origin main && break || \
+            echo "Retry $i: Push failed, likely due to concurrent job. Rebase and trying again..."
+            sleep $((RANDOM % 10 + 5))
+          done
