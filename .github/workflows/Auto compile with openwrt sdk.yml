@@ -50,15 +50,28 @@ jobs:
           url_tags: https://api.github.com/repos/${{ env.passwall2 }}/tags
         run: |
           cd luci-app-passwall2
-          latest_version=$(awk -F ':=' '/^PKG_VERSION:=|^PKG_RELEASE:=/ {print $2}' Makefile | sed ':a;N;s/\$(PKG_VERSION)-//;s/\n$//;s/\n/-/;ba')
-          has_update=$([ -z "$(wget -qO- -t1 -T2 ${{env.url_tags}} | grep \"${latest_version}\")" ] && echo true || echo false)
+          v=$(grep "^PKG_VERSION:=" Makefile | cut -d= -f2 | tr -d '[:space:]')
+          r=$(grep "^PKG_RELEASE:=" Makefile | cut -d= -f2 | tr -d '[:space:]')
+          latest_version="${v}-${r}"
+          has_update=false
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "👋 Manual trigger detected, forcing build."
+            has_update=true
+          else
+            echo "🔍 Checking if version ${latest_version} already exists..."
+            exists=$(wget -qO- -t1 -T2 ${{env.url_tags}} | grep "\"${latest_version}\"")
+            if [ -z "$exists" ]; then
+              has_update=true
+            else
+              has_update=false
+              echo "⏭️ Version already exists in releases, skipping auto-build."
+            fi
+          fi
           prerelease=$([ "${{ github.ref_name }}" == "main" ] && echo false || echo true)
           echo "latest_version=${latest_version}" >> $GITHUB_OUTPUT
           echo "has_update=${has_update}" >> $GITHUB_OUTPUT
           echo "prerelease=${prerelease}" >> $GITHUB_OUTPUT
-          echo "latest_version: ${latest_version}"
-          echo "has_update: ${has_update}"
-          echo "prerelease: ${prerelease}"
+          echo "Summary: Version=${latest_version}, HasUpdate=${has_update}, Prerelease=${prerelease}"
 
       - name: Prepare release
         if: steps.check_version.outputs.has_update == 'true'
@@ -76,6 +89,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{steps.check_version.outputs.latest_version}}
+          allowUpdates: true
           target_commitish: ${{ github.ref_name }}
           prerelease: ${{steps.check_version.outputs.prerelease}}
           body_path: release.txt
