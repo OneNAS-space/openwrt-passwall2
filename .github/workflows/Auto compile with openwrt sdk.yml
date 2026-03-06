@@ -229,7 +229,7 @@ jobs:
           git add 24.10/luci/ 25.12/luci
           
           for i in {1..5}; do
-            git commit -m "Update $CURRENT_PKG (${{ matrix.ow_ver }}) - v${{ needs.job_check.outputs.passwall2_version }}" && \
+            git commit -m "Update $CURRENT_PKG to v${{ needs.job_check.outputs.passwall2_version }}" && \
             git pull --rebase origin main && \
             git push origin main && break || \
             echo "Retry $i: Push failed, likely due to concurrent job. Rebase and trying again..."
