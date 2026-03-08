@@ -47,7 +47,6 @@ jobs:
       - name: Check version
         id: check_version
         env:
-          url_tags: repos/${{ env.passwall2 }}/tags
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd luci-app-passwall2
@@ -59,8 +58,7 @@ jobs:
             echo "👋 Manual trigger detected, forcing build."
             has_update=true
           else
-            echo "🔍 Checking if version ${latest_version} already exists..."
-            if gh api ${{env.url_tags}} --jq ".[].name" | grep -qx "${latest_version}"; then
+            if gh release view "$latest_version" --repo "${{ github.repository }}" > /dev/null 2>&1; then
               echo "⏭️ Version already exists in releases, skipping auto-build."
               has_update=false
             else
@@ -243,7 +241,7 @@ jobs:
           git add 24.10/luci/ 25.12/luci
           
           for i in {1..5}; do
-            git commit -m "Update $CURRENT_PKG to v${{ needs.job_check.outputs.passwall2_version }}" && \
+            git commit -m "Update $CURRENT_PKG to ${{ needs.job_check.outputs.passwall2_version }}" && \
             git pull --rebase origin main && \
             git push origin main && break || \
             echo "Retry $i: Push failed, likely due to concurrent job. Rebase and trying again..."
