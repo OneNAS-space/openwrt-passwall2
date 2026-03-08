@@ -52,7 +52,7 @@ jobs:
           cd luci-app-passwall2
           v=$(grep "^PKG_VERSION:=" Makefile | cut -d= -f2 | tr -d '[:space:]')
           r=$(grep "^PKG_RELEASE:=" Makefile | cut -d= -f2 | tr -d '[:space:]')
-          latest_version="${v}-r${r}"
+          latest_version="v${v}-r${r}"
           has_update=false
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             echo "👋 Manual trigger detected, forcing build."
