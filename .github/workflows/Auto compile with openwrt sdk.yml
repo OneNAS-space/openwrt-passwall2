@@ -47,7 +47,8 @@ jobs:
       - name: Check version
         id: check_version
         env:
-          url_tags: https://api.github.com/repos/${{ env.passwall2 }}/tags
+          url_tags: repos/${{ env.passwall2 }}/tags
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd luci-app-passwall2
           v=$(grep "^PKG_VERSION:=" Makefile | cut -d= -f2 | tr -d '[:space:]')
@@ -59,12 +60,11 @@ jobs:
             has_update=true
           else
             echo "🔍 Checking if version ${latest_version} already exists..."
-            exists=$(wget -qO- -t1 -T2 ${{env.url_tags}} | grep "\"${latest_version}\"")
-            if [ -z "$exists" ]; then
-              has_update=true
-            else
-              has_update=false
+            if gh api ${{env.url_tags}} --jq ".[].name" | grep -qx "${latest_version}"; then
               echo "⏭️ Version already exists in releases, skipping auto-build."
+              has_update=false
+            else
+              has_update=true
             fi
           fi
           prerelease=$([ "${{ github.ref_name }}" == "main" ] && echo false || echo true)
