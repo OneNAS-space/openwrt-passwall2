@@ -221,24 +221,24 @@ jobs:
           set -e
           CURRENT_PKG="luci-app-passwall2"
           
-          mkdir -p custom-packages/24.10/luci
-          mkdir -p custom-packages/25.12/luci
+          mkdir -p custom-packages/releases/packages-24.10/luci
+          mkdir -p custom-packages/releases/packages-24.10/luci
           
           if [ "${{ matrix.ow_ver }}" == "24.10" ]; then
             echo "Cleaning old IPKs for 24.10..."
-            rm -f custom-packages/24.10/luci/${CURRENT_PKG}_*.ipk
-            cp artifacts/*.ipk custom-packages/24.10/luci/
+            rm -f custom-packages/releases/packages-24.10/luci/${CURRENT_PKG}_*.ipk
+            cp artifacts/*.ipk custom-packages/releases/packages-24.10/luci/
           else
             echo "Cleaning old APKs for 25.12..."
-            rm -f custom-packages/25.12/luci/${CURRENT_PKG}-*.apk
-            cp artifacts/*.apk custom-packages/25.12/luci/
+            rm -f custom-packages/releases/packages-24.10/luci/${CURRENT_PKG}-*.apk
+            cp artifacts/*.apk custom-packages/releases/packages-24.10/luci/
           fi
 
           cd custom-packages
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          git add 24.10/luci/ 25.12/luci
+          git add releases/packages-24.10/luci/ releases/packages-24.10/luci/
           
           for i in {1..5}; do
             git commit -m "Update $CURRENT_PKG to ${{ needs.job_check.outputs.passwall2_version }}" && \
