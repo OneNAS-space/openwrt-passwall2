@@ -221,29 +221,36 @@ jobs:
           set -e
           CURRENT_PKG="luci-app-passwall2"
           
-          mkdir -p custom-packages/releases/packages-24.10/luci
-          mkdir -p custom-packages/releases/packages-24.10/luci
+          TARGET_VER="${{ matrix.ow_ver }}"
+          TARGET_DIR="custom-packages/releases/packages-${TARGET_VER}/luci"
+          
+          echo "📂 Target Directory: ${TARGET_DIR}"
+          mkdir -p "${TARGET_DIR}"
           
           if [ "${{ matrix.ow_ver }}" == "24.10" ]; then
             echo "Cleaning old IPKs for 24.10..."
-            rm -f custom-packages/releases/packages-24.10/luci/${CURRENT_PKG}_*.ipk
-            cp artifacts/*.ipk custom-packages/releases/packages-24.10/luci/
+            rm -f "${TARGET_DIR}/${CURRENT_PKG}_"*.ipk
+            cp artifacts/*.ipk "${TARGET_DIR}/"
           else
             echo "Cleaning old APKs for 25.12..."
-            rm -f custom-packages/releases/packages-24.10/luci/${CURRENT_PKG}-*.apk
-            cp artifacts/*.apk custom-packages/releases/packages-24.10/luci/
+            rm -f "${TARGET_DIR}/${CURRENT_PKG}-"*.apk
+            cp artifacts/*.apk "${TARGET_DIR}/"
           fi
 
           cd custom-packages
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          git add releases/packages-24.10/luci/ releases/packages-24.10/luci/
+          git add "releases/packages-${TARGET_VER}/luci/"
           
-          for i in {1..5}; do
-            git commit -m "Update $CURRENT_PKG to ${{ needs.job_check.outputs.passwall2_version }}" && \
-            git pull --rebase origin main && \
-            git push origin main && break || \
-            echo "Retry $i: Push failed, likely due to concurrent job. Rebase and trying again..."
-            sleep $((RANDOM % 10 + 5))
-          done
+          if git diff --staged --quiet; then
+            echo "按兵不动：没有检测到文件变化，跳过提交。"
+          else
+            for i in {1..5}; do
+              git commit -m "Update $CURRENT_PKG to ${{ needs.job_check.outputs.passwall2_version }} for ${TARGET_VER}" && \
+              git pull --rebase origin main && \
+              git push origin main && break || \
+              echo "Retry $i: Push failed. Rebase and trying again..."
+              sleep $((RANDOM % 10 + 5))
+            done
+          fi
