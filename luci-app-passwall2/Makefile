@@ -30,7 +30,7 @@ LUCI_TITLE:=LuCI support for PassWall 2
 LUCI_PKGARCH:=all
 LUCI_DEPENDS:=+coreutils +coreutils-base64 +coreutils-nohup +curl \
 	+ip-full +libuci-lua +lua +luci-compat +luci-lib-jsonc +lyaml +resolveip +tcping \
-	+geoview +v2ray-geoip +v2ray-geosite \
+	+geoview \
 	+unzip
 
 define Package/$(PKG_NAME)/config
