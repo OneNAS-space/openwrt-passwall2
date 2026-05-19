@@ -41,7 +41,6 @@ else
 fi
 uci commit firewall
 
-
 [ ! -s "/etc/config/passwall2" ] && cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
 
 chmod +x /usr/share/passwall2/*.sh
@@ -56,15 +55,5 @@ sed -i "s#add_from#group#g" /etc/config/passwall2 2>/dev/null
 rm -f /tmp/luci-indexcache /tmp/luci-indexcache.*
 rm -rf /tmp/luci-modulecache/
 killall -HUP rpcd 2>/dev/null
-
-if [ "$(uci -q get passwall2.@global[0].enabled)" = "1" ]; then
-    /etc/init.d/passwall2 enable
-    /etc/init.d/passwall2 restart
-fi
-
-if [ "$(uci -q get passwall2_server.@global[0].enabled)" = "1" ]; then
-    /etc/init.d/passwall2_server enable
-    /etc/init.d/passwall2_server restart
-fi
 
 exit 0
