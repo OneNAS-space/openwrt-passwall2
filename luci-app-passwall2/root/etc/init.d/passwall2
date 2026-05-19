@@ -1,8 +1,5 @@
 #!/bin/sh /etc/rc.common
 
-# 核心：开启 Procd 模式
-USE_PROCD=1
-
 START=99
 STOP=15
 
@@ -11,7 +8,6 @@ APP_FILE=${APP_PATH}/app.sh
 LOCK_FILE_DIR=/var/lock
 LOCK_FILE=${LOCK_FILE_DIR}/${CONFIG}.lock
 
-# 保持原有的锁逻辑，供 app.sh 内部调用或手动控制时使用
 set_lock() {
 	[ ! -d "$LOCK_FILE_DIR" ] && mkdir -p $LOCK_FILE_DIR
 	exec 999>"$LOCK_FILE"
@@ -23,70 +19,67 @@ unset_lock() {
 	rm -rf "$LOCK_FILE"
 }
 
-# 核心：procd 服务实例化函数
-start_service() {
-    # 提取启动延迟
-    local delay=$(uci -q get ${CONFIG}.@global_delay[0].start_delay || echo 1)
-    
-    # 开启 Procd 实例
-    procd_open_instance "passwall2"
-    
-    # 执行命令：添加一个简单的 sleep 模拟原有的启动延迟
-    # 这里通过 /bin/sh -c 确保 shell 环境正确
-    procd_set_param command /bin/sh -c "sleep ${delay}; $APP_FILE start"
-    
-    # 核心：Respawn (自动重启机制)
-    # 如果进程意外退出，procd 会在 5 秒后自动尝试重启，最多重试 5 次
-    procd_set_param respawn 3600 5 5
-    
-    # 核心：Triggers (配置变动自动触发)
-    # 当防火墙配置变更时，procd 会自动调用 reload，而不会导致死锁
-    procd_set_param triggers "firewall" "passwall2"
-    
-    procd_set_param stderr 1
-    procd_set_param stdout 1
-    
-    procd_close_instance
+unlock() {
+	failcount=1
+	while [ "$failcount" -le 10 ]; do
+		if [ -f "$LOCK_FILE" ]; then
+			let "failcount++"
+			sleep 1s
+			[ "$failcount" -ge 10 ] && unset_lock
+		else
+			break
+		fi
+	done
 }
 
-# 必须声明 reload 函数以响应 triggers
-reload_service() {
-    stop
-    start
+boot_func() {
+	local delay=$(uci -q get ${CONFIG}.@global_delay[0].start_delay || echo 1)
+	if [ "$delay" -gt 0 ]; then
+		log_i18n 0 "Start after a delay of %s seconds!" "${delay}"
+		sleep $delay
+	fi
+	restart boot
+	touch ${LOCK_FILE_DIR}/${CONFIG}_ready.lock
 }
 
-# 保留 start/stop/restart 函数作为手动控制的入口
-# 它们现在会通过 procd 接口进行控制，更加稳健
+boot() {
+	boot_func >/dev/null 2>&1 &
+}
+
 start() {
-    # 如果服务未启用则不启动
-    [ "$(uci -q get ${CONFIG}.@global[0].enabled)" == "1" ] || return 0
-    procd_running "passwall2" && return 0
-    
-    # 兼容原有的 flock 逻辑
-    set_lock
-    [ $? == 1 ] && return 0
-    
-    procd_send_signal "passwall2"
-    unset_lock
+	set_lock
+	[ $? == 1 ] && log_i18n 0 "The script is already running, do not run it again. Exit." && exit 0
+	$APP_FILE start
+	unset_lock
 }
 
 stop() {
-    # 保持原有的清理逻辑
-    # 停止实例，procd 会处理信号传递
-    procd_stop_instance "passwall2"
-    
-    # 执行原有的清理动作
-    $APP_FILE stop
+	unlock
+	set_lock
+	[ $? == 1 ] && log_i18n 0 "Stop the script and wait for a timeout, then exit without repeating the process." && exit 0
+	$APP_FILE stop
+	unset_lock
 }
 
-# 注册配置变动自动重载触发器
-service_triggers() {
-    procd_add_reload_trigger "passwall2" "firewall"
+restart() {
+	set_lock
+	[ $? == 1 ] && log_i18n 0 "The script is already running, do not run it again. Exit." && exit 0
+	rule_lock=${LOCK_FILE_DIR}/${CONFIG}_rule_update.lock
+	sub_lock=${LOCK_FILE_DIR}/${CONFIG}_subscribe.lock
+	for i in $(seq 1 300); do
+		if [ ! -f "$rule_lock" ] && [ ! -f "$sub_lock" ]; then
+			break
+		fi
+		sleep 2
+	done
+	rm -f "$rule_lock" "$sub_lock"
+	$APP_FILE stop
+	$APP_FILE start $1
+	unset_lock
 }
 
-# 兼容原有的 boot 启动逻辑
-boot() {
-    # boot 逻辑现在由 procd 在开机时自动处理
-    # 如果服务已 enable，系统会自动调用 start_service
-    return 0
+reload() {
+	echo "Warning: This service does not support configuration reloading"
+	echo "Performing full restart instead..."
+	restart
 }

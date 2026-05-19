@@ -41,6 +41,7 @@ else
 fi
 uci commit firewall
 
+
 [ ! -s "/etc/config/passwall2" ] && cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
 
 chmod +x /usr/share/passwall2/*.sh
