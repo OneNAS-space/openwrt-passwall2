@@ -64,17 +64,31 @@ rm -f /tmp/luci-indexcache /tmp/luci-indexcache.*
 rm -rf /tmp/luci-modulecache/
 killall -HUP rpcd 2>/dev/null
 
-UPTIME=$(cut -d. -f1 /proc/uptime 2>/dev/null || echo 0)
+# 2. 循环检查进程
+exit_flag=0
+for i in $(seq 1 15); do
+    if ! pgrep -f "/tmp/etc/passwall2/bin" >/dev/null 2>&1; then
+        logger -t uci-defaults "旧进程已在第 $i 秒优雅退出。"
+        exit_flag=1
+        break
+    fi
+    sleep 1
+done
 
-if [ "$UPTIME" -gt 300 ]; then
-	logger -t uci-defaults "Passwall2 live upgrade detected (Uptime: ${UPTIME}s). Marking..."
-	(
-#		sleep 3
-		[ -x "/etc/init.d/passwall2" ] && /etc/init.d/passwall2 start >/dev/null 2>&1
-#		[ -x "/etc/init.d/passwall2_server" ] && /etc/init.d/passwall2_server restart
-	) &
+# 3. 结果判断与兜底
+if [ "$exit_flag" -eq 0 ]; then
+    if pgrep -f "/tmp/etc/passwall2/bin" >/dev/null 2>&1; then
+        logger -t uci-defaults "警告：等待 15 秒后旧进程仍未退出，执行强制强杀 (pkill -9)。"
+        pkill -9 -f "/tmp/etc/passwall2/bin"
+    else
+        logger -t uci-defaults "旧进程在第 15 秒结束时刚好退出。"
+    fi
 else
-	logger -t uci-defaults "Passwall2 first boot detected (Uptime: ${UPTIME}s). Skipping auto-restart to avoid boot loop."
+    logger -t uci-defaults "进程清理成功，准备拉起新服务。"
 fi
+
+# 4. 安全启动
+/etc/init.d/passwall2 start >/dev/null 2>&1
+logger -t uci-defaults "服务启动指令已发送。"
 
 exit 0
