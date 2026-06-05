@@ -1149,8 +1149,8 @@ acl_app() {
 
 start() {
 	busybox pgrep -f /tmp/etc/passwall2/bin > /dev/null 2>&1 && {
-		logger -t PW2-RESTART "Upgrade or overload residue has been detected, and cold intervention is being carried out..."
-		busybox pgrep -f /tmp/etc/passwall2/bin | xargs kill -9 >/dev/null 2>&1
+		logger -t PW2-RESTART "Upgrade or overload residue is detected, and the subprocess is being called to perform complete cleaning..."
+		(stop)
 		sleep 2
 	}
 	mkdir -p /tmp/etc /tmp/log $TMP_PATH $TMP_BIN_PATH $TMP_SCRIPT_FUNC_PATH $TMP_ROUTE_PATH $TMP_ACL_PATH $TMP_PATH2
