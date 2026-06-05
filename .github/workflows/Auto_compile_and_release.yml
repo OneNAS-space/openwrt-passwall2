@@ -1,7 +1,7 @@
 #
 # Copyright (c) 2022-2023 SMALLPROGRAM <https://github.com/smallprogram>
-# Description: Auto compile
-#
+# Description: Auto compile luci-app-passwall2
+# Auto_compile_and_release.yml
 name: "Auto compile with openwrt sdk"
 permissions:
   contents: write
@@ -200,57 +200,97 @@ jobs:
           cd ..
           echo "status=success" >> $GITHUB_OUTPUT
 
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v3
+      - name: 📦 Upload build artifact
         if: steps.compile.outputs.status == 'success'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: passwall2-artifacts-${{ matrix.ow_ver }}
+          path: artifacts/*.${{ matrix.ext }}
+          if-no-files-found: error
+
+  job_release:
+    name: 3. Release & Deploy
+    needs: [job_check, job_build_passwall2]
+    if: needs.job_check.outputs.has_update == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧾 Checkout repo
+        uses: actions/checkout@v6
+
+      - name: ⬇️ Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: passwall2-artifacts-*
+          path: ./release-assets
+          merge-multiple: true
+
+      - name: 📝 Prepare release text
+        run: |
+          echo "## :mega:Update content" >> release.txt
+          echo "![](https://img.shields.io/github/downloads/${{ github.repository }}/${{ needs.job_check.outputs.passwall2_version }}/total?style=flat-square)" >> release.txt
+          echo "### Passwall2 Info" >> release.txt
+          echo "**:minidisc: Passwall2 Version: ${{ needs.job_check.outputs.passwall2_version }}**" >> release.txt
+
+      - name: 🗃️ Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.job_check.outputs.passwall2_version }}
-          files: artifacts/*.${{ matrix.ext }}
+          make_latest: true
+          target_commitish: ${{ github.ref_name }}
+          prerelease: ${{ needs.job_check.outputs.prerelease == 'true' }}
+          body_path: release.txt
+          files: |
+            ./release-assets/*.ipk
+            ./release-assets/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Checkout custom-packages repo
+      - name: 🔑 Checkout custom-packages repo
         uses: actions/checkout@v6
         with:
           repository: OneNAS-space/custom-packages
           token: ${{ secrets.CUSTOM_PACKAGES_TOKEN }}
           path: custom-packages
 
-      - name: Update custom-packages repo
+      - name: 🚚 Update luci artifacts
         run: |
           set -e
           CURRENT_PKG="luci-app-passwall2"
+          mkdir -p custom-packages/releases/packages-24.10/luci
+          mkdir -p custom-packages/releases/packages-25.12/luci
           
-          TARGET_VER="${{ matrix.ow_ver }}"
-          TARGET_DIR="custom-packages/releases/packages-${TARGET_VER}/luci"
+          echo "Cleaning all old versions for $CURRENT_PKG before updating..."
+          rm -f custom-packages/releases/packages-24.10/luci/${CURRENT_PKG}_*.ipk
+          rm -f custom-packages/releases/packages-25.12/luci/${CURRENT_PKG}-*.apk
           
-          echo "📂 Target Directory: ${TARGET_DIR}"
-          mkdir -p "${TARGET_DIR}"
+          find ./release-assets -type f \( -name "*.ipk" -o -name "*.apk" \) | while read -r f; do
+            base=$(basename "$f")
+            if [[ "$base" == *.ipk ]]; then
+              echo "Deploying $base to releases/packages-24.10/luci/"
+              cp "$f" custom-packages/releases/packages-24.10/luci/
+            elif [[ "$base" == *.apk ]]; then
+              echo "Deploying $base to releases/packages-25.12/luci/"
+              cp "$f" custom-packages/releases/packages-25.12/luci/
+            fi
+          done
           
-          if [ "${{ matrix.ow_ver }}" == "24.10" ]; then
-            echo "Cleaning old IPKs for 24.10..."
-            rm -f "${TARGET_DIR}/${CURRENT_PKG}_"*.ipk
-            cp artifacts/*.ipk "${TARGET_DIR}/"
-          else
-            echo "Cleaning old APKs for 25.12..."
-            rm -f "${TARGET_DIR}/${CURRENT_PKG}-"*.apk
-            cp artifacts/*.apk "${TARGET_DIR}/"
-          fi
+          echo "=== 24.10 Content ==="
+          ls -la custom-packages/releases/packages-24.10/luci/${CURRENT_PKG}* || echo "No IPKs found"
+          echo "=== 25.12 Content ==="
+          ls -la custom-packages/releases/packages-25.12/luci/${CURRENT_PKG}* || echo "No APKs found"
 
           cd custom-packages
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git add "releases/packages-${TARGET_VER}/luci/"
+          git add releases/packages-24.10/luci/ releases/packages-25.12/luci/
           
           if git diff --staged --quiet; then
             echo "按兵不动：没有检测到文件变化，跳过提交。"
           else
+            git commit -m "Update $CURRENT_PKG to ${{ needs.job_check.outputs.passwall2_version }}"
             for i in {1..5}; do
-              git commit -m "Update $CURRENT_PKG to ${{ needs.job_check.outputs.passwall2_version }} for ${TARGET_VER}" && \
               git pull --rebase origin main && \
               git push origin main && break || \
-              echo "Retry $i: Push failed. Rebase and trying again..."
-              sleep $((RANDOM % 10 + 5))
+              (echo "Conflict detected, retrying in 5s..." && sleep 5)
             done
           fi
