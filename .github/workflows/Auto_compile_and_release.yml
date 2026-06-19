@@ -38,7 +38,7 @@ jobs:
       prerelease: ${{ steps.check_version.outputs.prerelease }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
@@ -121,7 +121,7 @@ jobs:
           sudo -E apt-get -qq clean
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
@@ -207,7 +207,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 🧾 Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: ⬇️ Download all build artifacts
         uses: actions/download-artifact@v8
@@ -237,7 +237,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🔑 Checkout custom-packages repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: OneNAS-space/custom-packages
           token: ${{ secrets.CUSTOM_PACKAGES_TOKEN }}
