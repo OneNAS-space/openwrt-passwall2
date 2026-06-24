@@ -42,6 +42,26 @@ jobs:
             echo "No unwanted deps found"
           fi
 
+      - name: Apply Custom Patches Pipeline
+        run: |
+          set -e
+
+          PATCH_LIST="
+            rule_lua.patch
+          "
+
+          for patch_file in $PATCH_LIST; do
+            echo ""
+            if [ -f "patches/$patch_file" ]; then
+              echo "🩹 Applying patches/$patch_file ..."
+              patch --batch -p1 < "patches/$patch_file"
+              echo "✅ $patch_file applied successfully!"
+            else
+              echo "❌ Critical Error: patches/$patch_file missing!"
+              exit 1
+            fi
+          done
+
       - name: Show diff
         run: git diff --color
 
