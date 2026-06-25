@@ -11,10 +11,8 @@ s.anonymous = true
 o = s:option(Value, "geoip_url", translate("GeoIP Update URL"))
 o:value("https://github.com/Loyalsoldier/geoip/releases/latest/download/geoip.dat", translate("Loyalsoldier/geoip"))
 o:value("https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geoip.dat", translate("MetaCubeX/geoip"))
-o:value("https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat", translate("Loyalsoldier/geoip (CDN)"))
+o:value("https://cdn.jsdelivr.net/gh/Loyalsoldier/geoip@release/geoip.dat", translate("Loyalsoldier/geoip (CDN)"))
 o:value("https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat", translate("MetaCubeX/geoip (CDN)"))
-o:value("https://cdn.jsdmirror.cn/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat", translate("Loyalsoldier/geoip (JSDMirror)"))
-o:value("https://cdn.jsdmirror.cn/gh/MetaCubeX/meta-rules-dat@release/geoip.dat", translate("MetaCubeX/geoip (JSDMirror)"))
 o:value("https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/geoip.dat", translate("Chocolate4U/geoip (IR)"))
 o:value("https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat", translate("runetfreedom/geoip (RU)"))
 o.default = o.keylist[1]
@@ -24,8 +22,6 @@ o:value("https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/downloa
 o:value("https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat", translate("MetaCubeX/geosite"))
 o:value("https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat", translate("Loyalsoldier/geosite (CDN)"))
 o:value("https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat", translate("MetaCubeX/geosite (CDN)"))
-o:value("https://cdn.jsdmirror.cn/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat", translate("Loyalsoldier/geosite (JSDMirror)"))
-o:value("https://cdn.jsdmirror.cn/gh/MetaCubeX/meta-rules-dat@release/geosite.dat", translate("MetaCubeX/geosite (JSDMirror)"))
 o:value("https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/geosite.dat", translate("Chocolate4U/geosite (IR)"))
 o:value("https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat", translate("runetfreedom/geosite (RU)"))
 o.default = o.keylist[1]
