@@ -1,34 +1,39 @@
-From 7a904e4e29ee2b75d32dbc199cc00fd304117b75 Mon Sep 17 00:00:00 2001
+From 69e98f0d2b2c0c1137a641e36f1f283eb4225452 Mon Sep 17 00:00:00 2001
 From: Jackie264 <125248570+Jackie264@users.noreply.github.com>
-Date: Wed, 24 Jun 2026 16:33:03 +0800
-Subject: [PATCH] Update GeoIP and geosite URLs in rule.lua
+Date: Thu, 25 Jun 2026 13:18:58 +0800
+Subject: [PATCH] Update GeoIP and Geosite URLs in rule.lua
 
 ---
- .../luasrc/model/cbi/passwall2/client/rule.lua              | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ .../luasrc/model/cbi/passwall2/client/rule.lua         | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/model/cbi/passwall2/client/rule.lua b/luci-app-passwall2/luasrc/model/cbi/passwall2/client/rule.lua
-index e018d45c..e994376c 100644
+index e018d45c..4b32eb00 100644
 --- a/luci-app-passwall2/luasrc/model/cbi/passwall2/client/rule.lua
 +++ b/luci-app-passwall2/luasrc/model/cbi/passwall2/client/rule.lua
-@@ -11,8 +11,10 @@ s.anonymous = true
+@@ -9,9 +9,11 @@ s = m:section(TypedSection, "global_rules", translate("Rule status"))
+ s.anonymous = true
+ 
  o = s:option(Value, "geoip_url", translate("GeoIP Update URL"))
- o:value("https://github.com/Loyalsoldier/geoip/releases/latest/download/geoip.dat", translate("Loyalsoldier/geoip"))
+-o:value("https://github.com/Loyalsoldier/geoip/releases/latest/download/geoip.dat", translate("Loyalsoldier/geoip"))
++o:value("https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat", translate("Loyalsoldier/geoip"))
++o:value("https://gh-proxy.org/https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat", translate("Loyalsoldier/geoip (gh-proxy)"))
++o:value("https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat", translate("Loyalsoldier/geoip (CDN)"))
  o:value("https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geoip.dat", translate("MetaCubeX/geoip"))
 -o:value("https://cdn.jsdelivr.net/gh/Loyalsoldier/geoip@release/geoip.dat", translate("Loyalsoldier/geoip (CDN)"))
-+o:value("https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat", translate("Loyalsoldier/geoip (CDN)"))
++o:value("https://gh-proxy.org/https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geoip.dat", translate("MetaCubeX/geoip (gh-proxy)"))
  o:value("https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geoip.dat", translate("MetaCubeX/geoip (CDN)"))
-+o:value("https://cdn.jsdmirror.cn/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat", translate("Loyalsoldier/geoip (JSDMirror)"))
-+o:value("https://cdn.jsdmirror.cn/gh/MetaCubeX/meta-rules-dat@release/geoip.dat", translate("MetaCubeX/geoip (JSDMirror)"))
  o:value("https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/geoip.dat", translate("Chocolate4U/geoip (IR)"))
  o:value("https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat", translate("runetfreedom/geoip (RU)"))
- o.default = o.keylist[1]
-@@ -22,6 +24,8 @@ o:value("https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/downloa
- o:value("https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat", translate("MetaCubeX/geosite"))
+@@ -19,8 +21,10 @@ o.default = o.keylist[1]
+ 
+ o = s:option(Value, "geosite_url", translate("Geosite Update URL"))
+ o:value("https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat", translate("Loyalsoldier/geosite"))
+-o:value("https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat", translate("MetaCubeX/geosite"))
++o:value("https://gh-proxy.org/https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat", translate("Loyalsoldier/geosite (gh-proxy)"))
  o:value("https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat", translate("Loyalsoldier/geosite (CDN)"))
++o:value("https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat", translate("MetaCubeX/geosite"))
++o:value("https://gh-proxy.org/https://github.com/MetaCubeX/meta-rules-dat/releases/latest/download/geosite.dat", translate("MetaCubeX/geosite (gh-proxy)"))
  o:value("https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat", translate("MetaCubeX/geosite (CDN)"))
-+o:value("https://cdn.jsdmirror.cn/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat", translate("Loyalsoldier/geosite (JSDMirror)"))
-+o:value("https://cdn.jsdmirror.cn/gh/MetaCubeX/meta-rules-dat@release/geosite.dat", translate("MetaCubeX/geosite (JSDMirror)"))
  o:value("https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/geosite.dat", translate("Chocolate4U/geosite (IR)"))
  o:value("https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat", translate("runetfreedom/geosite (RU)"))
- o.default = o.keylist[1]
