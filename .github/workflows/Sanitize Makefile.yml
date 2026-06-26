@@ -53,14 +53,33 @@ jobs:
           for patch_file in $PATCH_LIST; do
             echo ""
             if [ -f "patches/$patch_file" ]; then
-              echo "🩹 Applying patches/$patch_file ..."
-              patch --batch -p1 < "patches/$patch_file"
-              echo "✅ $patch_file applied successfully!"
+              echo "🔎 正在检测补丁状态: patches/$patch_file ..."
+              
+              # 1. 核心智能检测：尝试“虚拟反向应用”补丁
+              # 如果返回 0，说明补丁内容已经存在于源码中（上游已合并）
+              if patch -p1 --dry-run -R --silent < "patches/$patch_file" >/dev/null 2>&1; then
+                echo "⏭️ [跳过] 上游源码已包含此补丁的内容，无需重复应用。"
+                continue
+              fi
+              
+              # 2. 如果上游没有，再测试当前补丁是否能“干净地正向应用”
+              if patch -p1 --dry-run --silent < "patches/$patch_file" >/dev/null 2>&1; then
+                echo "🩹 正在应用补丁 patches/$patch_file ..."
+                patch --batch -p1 < "patches/$patch_file"
+                echo "✅ $patch_file 应用成功！"
+              else
+                # 3. 如果既没应用过，正向应用还报错，说明上游代码大改，补丁彻底失效了
+                echo "❌ 关键错误：$patch_file 既没有被提前应用，也无法干净地融合（可能上游结构已改变）。"
+                exit 1
+              fi
             else
               echo "❌ Critical Error: patches/$patch_file missing!"
               exit 1
             fi
           done
+
+          # 4. 防御性清理：强制清除可能意外产生的任何 .orig 或 .rej 垃圾文件
+          find . -name "*.orig" -o -name "*.rej" -exec rm -f {} +
 
       - name: Show diff
         run: git diff --color
