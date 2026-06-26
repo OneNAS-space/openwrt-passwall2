@@ -267,7 +267,7 @@ jobs:
           git add releases/packages-25.12/luci/
           
           if git diff --staged --quiet; then
-            echo "按兵不动：没有检测到文件变化，跳过提交。"
+            echo "No file changes are detected, skip the submission."
           else
             git commit -m "Update $CURRENT_PKG to ${{ needs.job_check.outputs.passwall2_version }}"
             for i in {1..5}; do
