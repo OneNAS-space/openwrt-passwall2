@@ -53,23 +53,23 @@ jobs:
           for patch_file in $PATCH_LIST; do
             echo ""
             if [ -f "patches/$patch_file" ]; then
-              echo "🔎 正在检测补丁状态: patches/$patch_file ..."
+              echo "🔎 Detecting the patch status: patches/$patch_file ..."
               
-              # 1. 核心智能检测：尝试“虚拟反向应用”补丁
-              # 如果返回 0，说明补丁内容已经存在于源码中（上游已合并）
+              # 1. Core Intelligent Detection: Try the "Virtual Reverse Application" patch
+              # If 0 is returned, it means that the patch content already exists in the source code (the upstream has been merged)
               if patch -p1 --dry-run -R --silent < "patches/$patch_file" >/dev/null 2>&1; then
-                echo "⏭️ [跳过] 上游源码已包含此补丁的内容，无需重复应用。"
+                echo "⏭️ [Skip] The upstream source code already contains the content of this patch, and there is no need to repeat the application."
                 continue
               fi
               
-              # 2. 如果上游没有，再测试当前补丁是否能“干净地正向应用”
+              # 2. If there is no upstream, test whether the current patch can be "cleanly applied positively"
               if patch -p1 --dry-run --silent < "patches/$patch_file" >/dev/null 2>&1; then
-                echo "🩹 正在应用补丁 patches/$patch_file ..."
+                echo "🩹 Patch is being applied: patches/$patch_file ..."
                 patch --batch -p1 < "patches/$patch_file"
-                echo "✅ $patch_file 应用成功！"
+                echo "✅ $patch_file Successful application!"
               else
-                # 3. 如果既没应用过，正向应用还报错，说明上游代码大改，补丁彻底失效了
-                echo "❌ 关键错误：$patch_file 既没有被提前应用，也无法干净地融合（可能上游结构已改变）。"
+                # 3. If it has not been applied and the positive application still reports an error, it means that the upstream code has been greatly changed and the patch has been completely invalidated.
+                echo "❌ Key error: $patch_file is neither applied in advance nor can it be integrated cleanly (maybe the upstream structure has changed)."
                 exit 1
               fi
             else
@@ -78,7 +78,7 @@ jobs:
             fi
           done
 
-          # 4. 防御性清理：强制清除可能意外产生的任何 .orig 或 .rej 垃圾文件
+          # 4. Defensive cleaning: forcibly remove any .orig or .rej junk files that may be accidentally generated
           find . \( -name "*.orig" -o -name "*.rej" \) -exec rm -f {} +
           git rm -f $(git ls-files '**/*.orig' '**/*.rej') 2>/dev/null || true
 
