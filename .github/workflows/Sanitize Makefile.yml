@@ -79,7 +79,8 @@ jobs:
           done
 
           # 4. 防御性清理：强制清除可能意外产生的任何 .orig 或 .rej 垃圾文件
-          find . -name "*.orig" -o -name "*.rej" -exec rm -f {} +
+          find . \( -name "*.orig" -o -name "*.rej" \) -exec rm -f {} +
+          git rm -f $(git ls-files '**/*.orig' '**/*.rej') 2>/dev/null || true
 
       - name: Show diff
         run: git diff --color
