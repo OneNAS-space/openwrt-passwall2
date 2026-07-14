@@ -1,0 +1,25 @@
+From 86b5c26b75b74fe02960a35fbf88ba0dc56fb180 Mon Sep 17 00:00:00 2001
+From: Jackie264 <jackie.han@gmail.com>
+Date: Tue, 14 Jul 2026 14:16:20 +0800
+Subject: [PATCH] Enhance passwall2 configuration with fragment options
+
+Add handling for fragment length and delay in passwall2.
+---
+ luci-app-passwall2/root/etc/uci-defaults/luci-passwall2 | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/luci-app-passwall2/root/etc/uci-defaults/luci-passwall2 b/luci-app-passwall2/root/etc/uci-defaults/luci-passwall2
+index a85b1d90e..19ab146d4 100755
+--- a/luci-app-passwall2/root/etc/uci-defaults/luci-passwall2
++++ b/luci-app-passwall2/root/etc/uci-defaults/luci-passwall2
+@@ -49,6 +49,10 @@ chmod +x /usr/share/passwall2/*.sh
+ [ "$(uci -q get passwall2.@global_xray[0].sniffing)" == "1" ] && [ "$(uci -q get passwall2.@global_xray[0].route_only)" != "1" ] && uci -q set passwall2.@global_xray[0].sniffing_override_dest=1
+ uci -q delete passwall2.@global_xray[0].sniffing
+ uci -q delete passwall2.@global_xray[0].route_only
++frag_len=$(uci -q get passwall2.@global_xray[0].fragment_length)
++[ -n "$frag_len" ] && uci -q set passwall2.@global_xray[0].fragment_lengths="$frag_len" && uci -q delete passwall2.@global_xray[0].fragment_length
++frag_dly=$(uci -q get passwall2.@global_xray[0].fragment_delay)
++[ -n "$frag_dly" ] && uci -q set passwall2.@global_xray[0].fragment_delays="$frag_dly" && uci -q delete passwall2.@global_xray[0].fragment_delay
+ uci -q commit passwall2
+ 
+ sed -i "s#add_from#group#g" /etc/config/passwall2 2>/dev/null
