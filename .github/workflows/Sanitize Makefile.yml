@@ -49,7 +49,6 @@ jobs:
           PATCH_LIST="
             rule_lua.patch
             uci-defaults.patch
-            util_xray_lua.patch
           "
 
           for patch_file in $PATCH_LIST; do
