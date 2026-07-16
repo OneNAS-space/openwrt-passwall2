@@ -1,0 +1,114 @@
+From b7f5f014a37906078ead9a1ea8b69c11b4dd3286 Mon Sep 17 00:00:00 2001
+From: Jackie264 <jackie.han@gmail.com>
+Date: Thu, 16 Jul 2026 11:30:18 +0800
+Subject: [PATCH] Implement Base64 decoding and link validation
+
+Added functions to decode Base64 and validate links.
+---
+ .../passwall2/node_list/link_add_node.htm     | 82 +++++++++++++++----
+ 1 file changed, 68 insertions(+), 14 deletions(-)
+
+diff --git a/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm b/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm
+index 237cfb82..2413e977 100644
+--- a/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm
++++ b/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm
+@@ -86,31 +86,85 @@
+ 		}
+ 		document.getElementById("nodes_link").focus();
+ 	}
+-	
++
+ 	function close_add_link_div() {
+ 		document.getElementById('modal-mask').style.display = 'none';
+ 		document.getElementById("add_link_div").style.display = "none";
+ 		document.body.classList.remove('modal-open');
+ 	}
+-	
++
++	function tryWholeBase64Decode(str) {
++		const stripped = str.replace(/\s+/g, "");
++		if (stripped.length === 0) return null;
++		if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(stripped)) return null;
++		try {
++			let normalized = stripped.replace(/-/g, '+').replace(/_/g, '/');
++			const padLength = 4 - (normalized.length % 4);
++			if (padLength !== 4) {
++				normalized += '='.repeat(padLength);
++			}
++			const binaryStr = atob(normalized);
++			const bytes = Uint8Array.from(binaryStr, c => c.charCodeAt(0));
++			const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
++			return /:\/\//.test(decoded) ? decoded : null;
++		} catch (e) {
++			return null;
++		}
++	}
++	function decodeLineIfBase64(line) {
++		if (/:\/\//.test(line)) return line;
++		const decoded = tryWholeBase64Decode(line);
++		return decoded !== null ? decoded : line;
++	}
++
+ 	function add_node() {
+-		let nodes_link = document.getElementById("nodes_link").value;
++		let raw = document.getElementById("nodes_link").value;
+ 		const group = (document.querySelector('#addlink_group_custom input[type="hidden"]')?.value || "default");
+-		nodes_link = nodes_link.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").replace(/<[^>]*>/g, '').trim();
+-		if (nodes_link != "") {
+-			nodes_link = decodeIfBase64(nodes_link);
+-			let s = nodes_link.split('://');
+-			if (s.length > 1) {
+-				close_add_link_div();
+-				ajax_add_node(nodes_link, group);
+-			} else {
+-				alert("<%:Please enter the correct link.%>");
+-			}
++		raw = raw.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").trim();
++		if (raw === "") {
++			document.getElementById("nodes_link").focus();
++			return;
++		}
++		let contentLines;
++		const wholeDecoded = tryWholeBase64Decode(raw);
++		if (wholeDecoded !== null) {
++			contentLines = wholeDecoded.split('\n');
+ 		} else {
++			contentLines = raw.split('\n').map(line => decodeLineIfBase64(line.trim()));
++		}
++		const validNodes = [];
++		const invalidLines = [];
++		for (let line of contentLines) {
++			line = line.trim();
++			if (line === "") continue;
++			if (/[<>]/.test(line)) {
++				console.warn("Skip a line of illegal links (including '<' or '>'):", line);
++				invalidLines.push(line);
++				continue;
++			}
++			const idx = line.indexOf('://');
++			if (idx === -1) {
++				console.warn("Skip a line of content that cannot be recognized by the agreement:", line);
++				invalidLines.push(line);
++				continue;
++			}
++			const scheme = line.slice(0, idx);
++			const rest = line.slice(idx + 3);
++			validNodes.push({ scheme, rest, raw: line, group });
++		}
++		if (validNodes.length === 0) {
++			alert("<%:Please enter the correct link.%>");
+ 			document.getElementById("nodes_link").focus();
++			return;
+ 		}
++		if (invalidLines.length > 0) {
++			alert("<%:The following lines failed to parse or contained invalid characters:%>\n\n" + invalidLines.join('\n'));
++		}
++		let submitData = validNodes.map(n => n.raw).join('\n');
++		close_add_link_div();
++		ajax_add_node(submitData, group); 
+ 	}
+-	
++
+ 	function clear_all_nodes() {
+ 		if (confirm('<%:Are you sure to clear all nodes?%>') == true){
+ 			XHR.get('<%=api.url("clear_all_nodes")%>', null,
