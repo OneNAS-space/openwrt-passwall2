@@ -49,6 +49,7 @@ jobs:
           PATCH_LIST="
             rule_lua.patch
             uci-defaults.patch
+            sec_qua.patch
           "
 
           for patch_file in $PATCH_LIST; do
