@@ -402,7 +402,7 @@
 	function v_expandGroupOfCurrent(cbid, listContainer, hiddenInput) {
 		const key = hiddenInput.value;
 		if (!key) return;
-		const targetLi = listContainer.querySelector(`li[data-key='${CSS.escape(key)}']`);
+		const targetLi = listContainer.querySelector("li[data-key='" + key.replace(/'/g,"\\'") + "']");
 		if (!targetLi) return;
 		let parentGroup = targetLi.closest(".v-group");
 		if (parentGroup) {
