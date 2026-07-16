@@ -1,0 +1,303 @@
+From 1e72036b2fc3128ee04aef92e8d892b966c3ece2 Mon Sep 17 00:00:00 2001
+From: Jackie264 <jackie.han@gmail.com>
+Date: Thu, 16 Jul 2026 07:52:16 +0800
+Subject: [PATCH 3/6] Add Base64 decoding for node links input
+
+---
+ .../passwall2/node_list/link_add_node.htm     | 101 ++++++++++++++++--
+ 1 file changed, 90 insertions(+), 11 deletions(-)
+
+diff --git a/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm b/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm
+index 237cfb827..fe533941d 100644
+--- a/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm
++++ b/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm
+@@ -93,22 +93,101 @@
+ 		document.body.classList.remove('modal-open');
+ 	}
+ 	
++	function tryWholeBase64Decode(str) {
++		const stripped = str.replace(/\s+/g, "");
++		if (stripped.length === 0) return null;
++		if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(stripped)) return null;
++
++		try {
++			let normalized = stripped.replace(/-/g, '+').replace(/_/g, '/');
++			const padLength = 4 - (normalized.length % 4);
++			if (padLength !== 4) {
++				normalized += '='.repeat(padLength);
++			}
++			const binaryStr = atob(normalized);
++			const bytes = Uint8Array.from(binaryStr, c => c.charCodeAt(0));
++			const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
++			return /:\/\//.test(decoded) ? decoded : null;
++		} catch (e) {
++			return null;
++		}
++	}
++
++	function decodeLineIfBase64(line) {
++		if (/:\/\//.test(line)) return line;
++		const decoded = tryWholeBase64Decode(line);
++		return decoded !== null ? decoded : line; // If it can't be solved, keep and leave it to follow-up verification to reject.
++	}
++
+ 	function add_node() {
+-		let nodes_link = document.getElementById("nodes_link").value;
++		let raw = document.getElementById("nodes_link").value;
+ 		const group = (document.querySelector('#addlink_group_custom input[type="hidden"]')?.value || "default");
+-		nodes_link = nodes_link.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").replace(/<[^>]*>/g, '').trim();
+-		if (nodes_link != "") {
+-			nodes_link = decodeIfBase64(nodes_link);
+-			let s = nodes_link.split('://');
+-			if (s.length > 1) {
++
++		raw = raw.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").trim();
++
++		if (raw === "") {
++			document.getElementById("nodes_link").focus();
++			return;
++		}
++
++		let contentLines;
++		const wholeDecoded = tryWholeBase64Decode(raw);
++
++		if (wholeDecoded !== null) {
++			contentLines = wholeDecoded.split('\n');
++		} else {
++			contentLines = raw.split('\n').map(line => decodeLineIfBase64(line.trim()));
++		}
++
++		const validNodes = [];
++		const invalidLines = [];
++
++		for (let line of contentLines) {
++			line = line.trim();
++			if (line === "") continue;
++
++			if (/[<>]/.test(line)) {
++				console.warn("Skip a line of illegal links (including '<' or '>'):", line);
++				invalidLines.push(line);
++				continue;
++			}
++
++			const idx = line.indexOf('://');
++			if (idx === -1) {
++				console.warn("Skip a line of content that cannot be recognized by the agreement:", line);
++				invalidLines.push(line);
++				continue;
++			}
++
++			const scheme = line.slice(0, idx);
++			const rest = line.slice(idx + 3); // Only cut the '://' that appeared for the first time
++
++			validNodes.push({ scheme, rest, raw: line, group });
++		}
++
++		if (validNodes.length === 0) {
++			alert("<%:No valid nodes were parsed. Please check your links.%>");
++			return;
++		}
++
++		if (invalidLines.length > 0) {
++			alert("<%:The following lines failed to parse or contained invalid characters:%>\n\n" + invalidLines.join('\n'));
++		}
++
++		let submitData = validNodes.map(n => n.raw).join('\n');
++
++		XHR.post('<%=api.url("add_nodes")%>', { 
++			links: submitData, 
++			group: group 
++		}, 
++		function(x, data) {
++			if(x && x.status == 200) {
+ 				close_add_link_div();
+-				ajax_add_node(nodes_link, group);
++				window.location.href = '<%=api.url("node_list")%>';
+ 			} else {
+-				alert("<%:Please enter the correct link.%>");
++				alert("<%:Error%>");
+ 			}
+-		} else {
+-			document.getElementById("nodes_link").focus();
+-		}
++		});
+ 	}
+ 	
+ 	function clear_all_nodes() {
+
+From f3d0506e89ad80bb48ea3306b1568628b04a6882 Mon Sep 17 00:00:00 2001
+From: Jackie264 <jackie.han@gmail.com>
+Date: Thu, 16 Jul 2026 09:16:08 +0800
+Subject: [PATCH 4/6] Refactor link addition logic and improve alerts
+
+---
+ .../passwall2/node_list/link_add_node.htm     | 43 ++++---------------
+ 1 file changed, 9 insertions(+), 34 deletions(-)
+
+diff --git a/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm b/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm
+index fe533941d..2413e9771 100644
+--- a/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm
++++ b/luci-app-passwall2/luasrc/view/passwall2/node_list/link_add_node.htm
+@@ -86,18 +86,17 @@
+ 		}
+ 		document.getElementById("nodes_link").focus();
+ 	}
+-	
++
+ 	function close_add_link_div() {
+ 		document.getElementById('modal-mask').style.display = 'none';
+ 		document.getElementById("add_link_div").style.display = "none";
+ 		document.body.classList.remove('modal-open');
+ 	}
+-	
++
+ 	function tryWholeBase64Decode(str) {
+ 		const stripped = str.replace(/\s+/g, "");
+ 		if (stripped.length === 0) return null;
+ 		if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(stripped)) return null;
+-
+ 		try {
+ 			let normalized = stripped.replace(/-/g, '+').replace(/_/g, '/');
+ 			const padLength = 4 - (normalized.length % 4);
+@@ -112,84 +111,60 @@
+ 			return null;
+ 		}
+ 	}
+-
+ 	function decodeLineIfBase64(line) {
+ 		if (/:\/\//.test(line)) return line;
+ 		const decoded = tryWholeBase64Decode(line);
+-		return decoded !== null ? decoded : line; // If it can't be solved, keep and leave it to follow-up verification to reject.
++		return decoded !== null ? decoded : line;
+ 	}
+ 
+ 	function add_node() {
+ 		let raw = document.getElementById("nodes_link").value;
+ 		const group = (document.querySelector('#addlink_group_custom input[type="hidden"]')?.value || "default");
+-
+ 		raw = raw.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").trim();
+-
+ 		if (raw === "") {
+ 			document.getElementById("nodes_link").focus();
+ 			return;
+ 		}
+-
+ 		let contentLines;
+ 		const wholeDecoded = tryWholeBase64Decode(raw);
+-
+ 		if (wholeDecoded !== null) {
+ 			contentLines = wholeDecoded.split('\n');
+ 		} else {
+ 			contentLines = raw.split('\n').map(line => decodeLineIfBase64(line.trim()));
+ 		}
+-
+ 		const validNodes = [];
+ 		const invalidLines = [];
+-
+ 		for (let line of contentLines) {
+ 			line = line.trim();
+ 			if (line === "") continue;
+-
+ 			if (/[<>]/.test(line)) {
+ 				console.warn("Skip a line of illegal links (including '<' or '>'):", line);
+ 				invalidLines.push(line);
+ 				continue;
+ 			}
+-
+ 			const idx = line.indexOf('://');
+ 			if (idx === -1) {
+ 				console.warn("Skip a line of content that cannot be recognized by the agreement:", line);
+ 				invalidLines.push(line);
+ 				continue;
+ 			}
+-
+ 			const scheme = line.slice(0, idx);
+-			const rest = line.slice(idx + 3); // Only cut the '://' that appeared for the first time
+-
++			const rest = line.slice(idx + 3);
+ 			validNodes.push({ scheme, rest, raw: line, group });
+ 		}
+-
+ 		if (validNodes.length === 0) {
+-			alert("<%:No valid nodes were parsed. Please check your links.%>");
++			alert("<%:Please enter the correct link.%>");
++			document.getElementById("nodes_link").focus();
+ 			return;
+ 		}
+-
+ 		if (invalidLines.length > 0) {
+ 			alert("<%:The following lines failed to parse or contained invalid characters:%>\n\n" + invalidLines.join('\n'));
+ 		}
+-
+ 		let submitData = validNodes.map(n => n.raw).join('\n');
+-
+-		XHR.post('<%=api.url("add_nodes")%>', { 
+-			links: submitData, 
+-			group: group 
+-		}, 
+-		function(x, data) {
+-			if(x && x.status == 200) {
+-				close_add_link_div();
+-				window.location.href = '<%=api.url("node_list")%>';
+-			} else {
+-				alert("<%:Error%>");
+-			}
+-		});
++		close_add_link_div();
++		ajax_add_node(submitData, group); 
+ 	}
+-	
++
+ 	function clear_all_nodes() {
+ 		if (confirm('<%:Are you sure to clear all nodes?%>') == true){
+ 			XHR.get('<%=api.url("clear_all_nodes")%>', null,
+
+From cb492ac3a3efbdf7acc3e69e18cb36f28726cd15 Mon Sep 17 00:00:00 2001
+From: Jackie264 <jackie.han@gmail.com>
+Date: Thu, 16 Jul 2026 09:31:50 +0800
+Subject: [PATCH 5/6] Use CSS.escape for key in nodes_listvalue_com.htm
+
+To fix:
+- Incomplete string escaping or encoding. This does not escape backslash characters in the input.
+---
+ .../luasrc/view/passwall2/cbi/nodes_listvalue_com.htm           | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm b/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
+index 9de708e5f..0e8940eff 100644
+--- a/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
++++ b/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
+@@ -403,7 +403,7 @@
+ 	function lv_expandGroupOfCurrent(cbid, listContainer, hiddenSelect) {
+ 		const key = hiddenSelect.options[0].value;
+ 		if (!key) return;
+-		const targetLi = listContainer.querySelector("li[data-key='" + key.replace(/'/g,"\\'") + "']");
++		const targetLi = listContainer.querySelector(`li[data-key='${CSS.escape(key)}']`);
+ 		if (!targetLi) return;
+ 		let parentGroup = targetLi.closest(".lv-group");
+ 		if (parentGroup) {
+
+From 78f9295dfc667ffb57e3e5e6a016b65a55023624 Mon Sep 17 00:00:00 2001
+From: Jackie264 <jackie.han@gmail.com>
+Date: Thu, 16 Jul 2026 09:36:38 +0800
+Subject: [PATCH 6/6] Use CSS.escape for key in querySelector
+
+To fix:
+- Incomplete string escaping or encoding. This does not escape backslash characters in the input.
+---
+ .../luasrc/view/passwall2/cbi/nodes_value_com.htm               | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_value_com.htm b/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_value_com.htm
+index 1f784d04b..d470ea4b1 100644
+--- a/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_value_com.htm
++++ b/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_value_com.htm
+@@ -402,7 +402,7 @@
+ 	function v_expandGroupOfCurrent(cbid, listContainer, hiddenInput) {
+ 		const key = hiddenInput.value;
+ 		if (!key) return;
+-		const targetLi = listContainer.querySelector("li[data-key='" + key.replace(/'/g,"\\'") + "']");
++		const targetLi = listContainer.querySelector(`li[data-key='${CSS.escape(key)}']`);
+ 		if (!targetLi) return;
+ 		let parentGroup = targetLi.closest(".v-group");
+ 		if (parentGroup) {
