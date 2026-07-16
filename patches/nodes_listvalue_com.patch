@@ -1,0 +1,22 @@
+From 4e35fd0177f7c6880f63c8e29a3a8c33801f9e18 Mon Sep 17 00:00:00 2001
+From: Jackie264 <jackie.han@gmail.com>
+Date: Thu, 16 Jul 2026 11:22:31 +0800
+Subject: [PATCH] Refactor query selector to use CSS.escape
+
+---
+ .../luasrc/view/passwall2/cbi/nodes_listvalue_com.htm           | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm b/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
+index 9de708e5..0e8940ef 100644
+--- a/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
++++ b/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
+@@ -403,7 +403,7 @@
+ 	function lv_expandGroupOfCurrent(cbid, listContainer, hiddenSelect) {
+ 		const key = hiddenSelect.options[0].value;
+ 		if (!key) return;
+-		const targetLi = listContainer.querySelector("li[data-key='" + key.replace(/'/g,"\\'") + "']");
++		const targetLi = listContainer.querySelector(`li[data-key='${CSS.escape(key)}']`);
+ 		if (!targetLi) return;
+ 		let parentGroup = targetLi.closest(".lv-group");
+ 		if (parentGroup) {
