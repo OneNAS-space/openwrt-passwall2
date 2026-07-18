@@ -84,7 +84,7 @@ jobs:
       run: |
         mkdir -p dl "staging/${{ matrix.sdk_ver }}/${{ matrix.platform }}"
         chmod 777 dl "staging/${{ matrix.sdk_ver }}/${{ matrix.platform }}"
-        chmod +x .github/scripts/build-passwall-packages.sh
+        chmod +x .github/scripts/build-passwall2.sh
 
         docker run --rm \
           -v ${{ github.workspace }}:/workspace \
@@ -96,7 +96,7 @@ jobs:
           -e PACKAGES_REPO="${{ env.packages }}" \
           -e PASSWALL2_REPO="${{ env.passwall2 }}" \
           ${{ matrix.sdk_tag }} \
-          /workspace/.github/scripts/build-passwall-packages.sh
+          /workspace/.github/scripts/build-passwall2.sh
 
     - name: Fix dl cache permissions
       if: always()
