@@ -102,24 +102,9 @@ jobs:
       matrix:
         include:
           - ow_ver: "25.12"
-            sdk_url: "https://downloads.openwrt.org/releases/25.12.5/targets/x86/64/openwrt-sdk-25.12.5-x86-64_gcc-14.3.0_musl.Linux-x86_64.tar.zst"
+            sdk_tag: "openwrt/sdk:x86_64-25.12.5"
 
     steps:
-      - name: Install packages
-        run: |
-          sudo -E rm -rf /usr/share/dotnet /etc/mysql /etc/php /usr/local/lib/android
-          sudo -E apt-get -qq update
-          sudo -E apt-get -qq install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
-            bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
-            g++-multilib git gnutls-dev gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev \
-            libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev \
-            libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm lrzsz mkisofs msmtp nano \
-            ninja-build p7zip p7zip-full patch pkgconf python3 python3-pip python3-ply python3-docutils \
-            python3-pyelftools qemu-utils re2c rsync scons squashfs-tools subversion swig texinfo uglifyjs \
-            upx-ucl unzip vim wget xmlto xxd zlib1g-dev zstd
-          sudo -E apt-get -qq autoremove --purge
-          sudo -E apt-get -qq clean
-
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -129,67 +114,27 @@ jobs:
       - name: Cache OpenWrt dl
         uses: actions/cache@v6
         with:
-          path: sdk/dl
+          path: dl
           key: ${{ runner.os }}-openwrt-dl-${{ matrix.ow_ver }}-${{ hashFiles('**/Makefile') }}
           restore-keys: |
             ${{ runner.os }}-openwrt-dl-${{ matrix.ow_ver }}-
 
-      - name: Initialization SDK
-        run: |
-          wget -q ${{ matrix.sdk_url }} -O sdk.tar.zst
-          mkdir -p sdk
-          tar --zstd -x -f sdk.tar.zst -C ./sdk --strip-components=1
-          cd sdk
-
-          cat > feeds.conf.default << EOF
-          src-git passwall2 https://github.com/${{ env.passwall2 }}.git;${{ github.ref_name }}
-          src-git base https://github.com/openwrt/openwrt.git;openwrt-${{ matrix.ow_ver }}
-          src-git packages https://github.com/openwrt/packages.git;openwrt-${{ matrix.ow_ver }}
-          src-git luci https://github.com/openwrt/luci.git;openwrt-${{ matrix.ow_ver }}
-          src-git routing https://github.com/openwrt/routing.git;openwrt-${{ matrix.ow_ver }}
-          src-git telephony https://github.com/openwrt/telephony.git;openwrt-${{ matrix.ow_ver }}
-          EOF
-          
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
-
-          #--------------------------------------begin_patches------------------------------------------
-          echo "Start applying the patch"
-          rm -rf temp_resp
-          git clone -b master --single-branch https://github.com/openwrt/packages.git temp_resp
-          echo "update golang version"
-          rm -rf feeds/packages/lang/golang
-          cp -r temp_resp/lang/golang feeds/packages/lang
-          echo "update rust version"
-          rm -rf feeds/packages/lang/rust
-          cp -r temp_resp/lang/rust feeds/packages/lang
-          rm -rf temp_resp
-
-          echo "update patch-kernel.sh"
-          git clone -b main --single-branch https://github.com/openwrt/openwrt.git temp_resp
-          cp -f temp_resp/scripts/patch-kernel.sh scripts/
-          rm -rf temp_resp
-          echo "Patch application completed"
-          #--------------------------------------end_patches--------------------------------------------
-
-      - name: Compile passwall2
+      - name: Build in OpenWrt SDK Container
         id: compile
         run: |
-          cd sdk
-          echo "CONFIG_ALL_NONSHARED=n" > .config
-          echo "CONFIG_ALL_KMODS=n" >> .config
-          echo "CONFIG_ALL=n" >> .config
-          echo "CONFIG_AUTOREMOVE=n" >> .config
-          echo "CONFIG_PACKAGE_luci-app-passwall2=m" >> .config
-          make defconfig
-          echo "make package/luci-app-passwall2/{clean,compile} -j$(nproc)"
-          make package/luci-app-passwall2/{clean,compile} -j$(nproc) V=s
-          mkdir -p ../artifacts
-          find bin/packages/ -type f -name "*passwall2*.apk" -exec cp {} ../artifacts/ \;
-          make clean
-          rm .config .config.old
-          rm -rf feeds/passwall2 feeds/passwall2.*
-          cd ..
+          mkdir -p dl artifacts
+          chmod 777 dl artifacts
+          chmod +x .github/scripts/build-passwall2.sh
+
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -v ${{ github.workspace }}/dl:/builder/dl \
+            -e OW_VER="${{ matrix.ow_ver }}" \
+            -e PASSWALL2_REPO="${{ env.passwall2 }}" \
+            -e GIT_REF="${{ github.ref_name }}" \
+            ${{ matrix.sdk_tag }} \
+            /workspace/.github/scripts/build-passwall2.sh
+
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: 📦 Upload build artifact
@@ -199,6 +144,7 @@ jobs:
           name: passwall2-artifacts-${{ matrix.ow_ver }}
           path: artifacts/*.apk
           if-no-files-found: error
+
 
   job_release:
     name: 3. Release & Deploy
@@ -248,16 +194,16 @@ jobs:
           set -e
           CURRENT_PKG="luci-app-passwall2"
           mkdir -p custom-packages/releases/packages-25.12/luci
-          
+
           echo "Cleaning all old versions for $CURRENT_PKG before updating..."
           rm -f custom-packages/releases/packages-25.12/luci/${CURRENT_PKG}-*.apk
-          
+
           find ./release-assets -type f -name "*.apk" | while read -r f; do
             base=$(basename "$f")
             echo "Deploying $base to releases/packages-25.12/luci/"
             cp "$f" custom-packages/releases/packages-25.12/luci/
           done
-          
+
           echo "=== 25.12 Content ==="
           ls -la custom-packages/releases/packages-25.12/luci/${CURRENT_PKG}* || echo "No APKs found"
 
@@ -265,7 +211,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add releases/packages-25.12/luci/
-          
+
           if git diff --staged --quiet; then
             echo "No file changes are detected, skip the submission."
           else
