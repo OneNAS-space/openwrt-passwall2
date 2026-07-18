@@ -3,222 +3,161 @@
 # Auto_compile_and_release.yml
 name: "Auto compile with openwrt sdk"
 permissions:
-  contents: write
+  contents: read
+
 on:
   push:
     branches:
       - main
-    paths:
-      - 'Makefile'
-      - '!**/.github/**'
-  repository_dispatch:
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Sanitize Makefile"]
-    types:
-      - completed
 
 env:
   TZ: Asia/Shanghai
-  passwall2: ${{ github.repository }}
-  packages: Jackie264/openwrt-passwall-packages
-  GH_TOKEN_ORG: ${{ github.token }}
+  packages: ${{ github.repository }}
+  passwall2: OneNAS-space/openwrt-passwall2
 
 jobs:
-  job_check:
-    name: Check Version
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.event.head_commit.author.name != 'github-actions[bot]' && !contains(github.event.head_commit.message, 'Sync from xiaorouji')) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+  job_auto_compile:
     runs-on: ubuntu-latest
-    outputs:
-      passwall2_version: ${{ steps.check_version.outputs.latest_version }}
-      has_update: ${{ steps.check_version.outputs.has_update }}
-      prerelease: ${{ steps.check_version.outputs.prerelease }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref_name }}
-
-      - name: Check version
-        id: check_version
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cd luci-app-passwall2
-          v=$(grep "^PKG_VERSION:=" Makefile | cut -d= -f2 | tr -d '[:space:]')
-          r=$(grep "^PKG_RELEASE:=" Makefile | cut -d= -f2 | tr -d '[:space:]')
-          latest_version="v${v}-r${r}"
-          has_update=false
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "👋 Manual trigger detected, forcing build."
-            has_update=true
-          else
-            if gh release view "$latest_version" --repo "${{ github.repository }}" > /dev/null 2>&1; then
-              echo "⏭️ Version already exists in releases, skipping auto-build."
-              has_update=false
-            else
-              has_update=true
-            fi
-          fi
-          prerelease=$([ "${{ github.ref_name }}" == "main" ] && echo false || echo true)
-          echo "latest_version=${latest_version}" >> $GITHUB_OUTPUT
-          echo "has_update=${has_update}" >> $GITHUB_OUTPUT
-          echo "prerelease=${prerelease}" >> $GITHUB_OUTPUT
-          echo "Summary: Version=${latest_version}, HasUpdate=${has_update}, Prerelease=${prerelease}"
-
-      - name: Prepare release
-        if: steps.check_version.outputs.has_update == 'true'
-        run: |
-          echo "## :mega:Update content" >> release.txt
-          echo "![](https://img.shields.io/github/downloads/${{ env.passwall2 }}/${{steps.check_version.outputs.latest_version}}/total?style=flat-square)" >> release.txt
-          echo "### Passwall2 Info" >> release.txt
-          echo "**:minidisc: Passwall2 Version: ${{steps.check_version.outputs.latest_version}}**" >> release.txt
-          touch release.txt
-
-      - name: Generate new tag & release
-        if: steps.check_version.outputs.has_update == 'true'
-        uses: softprops/action-gh-release@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{steps.check_version.outputs.latest_version}}
-          make_latest: true
-          target_commitish: ${{ github.ref_name }}
-          prerelease: ${{steps.check_version.outputs.prerelease}}
-          body_path: release.txt
-
-
-  job_build_passwall2:
-    name: Build for openwrt-${{ matrix.ow_ver }}
-    needs: job_check
-    if: needs.job_check.outputs.has_update == 'true'
-    runs-on: ubuntu-latest
+    name: Matrix build (${{ matrix.sdk_ver }})/(${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
         include:
-          - ow_ver: "25.12"
-            sdk_tag: "openwrt/sdk:x86_64-25.12.5"
+          - platform: x86_64
+            sdk_tag: openwrt/sdk:x86_64-25.12.5
+            sdk_ver: "25.12"
+          - platform: aarch64_cortex-a53
+            sdk_tag: openwrt/sdk:qualcommax-ipq807x-25.12.5
+            sdk_ver: "25.12"
+          - platform: arm_cortex-a7_neon-vfpv4
+            sdk_tag: openwrt/sdk:ipq40xx-generic-25.12.5
+            sdk_ver: "25.12"
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref_name }}
+    - name: Checkout code
+      uses: actions/checkout@main
+      with:
+        fetch-depth: 0
 
-      - name: Cache OpenWrt dl
-        uses: actions/cache@v6
-        with:
-          path: dl
-          key: ${{ runner.os }}-openwrt-dl-${{ matrix.ow_ver }}-${{ hashFiles('**/Makefile') }}
-          restore-keys: |
-            ${{ runner.os }}-openwrt-dl-${{ matrix.ow_ver }}-
+    - name: Setup variables
+      run: |
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          echo "BASE_SHA=$(git merge-base refs/remotes/origin/${{ github.base_ref }} ${{ github.event.pull_request.head.sha }})" >> $GITHUB_ENV
+          echo "HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
+          echo "MODE=changed" >> $GITHUB_ENV
+        elif [ "${{ github.event_name }}" == "push" ]; then
+          echo "BASE_SHA=${{ github.event.before }}" >> $GITHUB_ENV
+          echo "HEAD_SHA=${{ github.event.after }}" >> $GITHUB_ENV
+          echo "MODE=changed" >> $GITHUB_ENV
+        else
+          echo "MODE=all" >> $GITHUB_ENV
+        fi
 
-      - name: Build in OpenWrt SDK Container
-        id: compile
-        run: |
-          mkdir -p dl artifacts
-          chmod 777 dl artifacts
-          chmod +x .github/scripts/build-passwall2.sh
+    - name: Detect changed directories
+      if: env.MODE == 'changed'
+      id: detect-changes
+      run: |
+        CHANGED_DIRS=$(git diff --name-only $BASE_SHA $HEAD_SHA | awk -F'/' '{print $1}' | sort -u | tr '\n' ',')
+        CHANGED_DIRS=${CHANGED_DIRS%,}
+        echo "CHANGED_DIRS=$CHANGED_DIRS" >> $GITHUB_ENV
+        echo "Changed dirs: $CHANGED_DIRS"
 
-          docker run --rm \
-            -v ${{ github.workspace }}:/workspace \
-            -v ${{ github.workspace }}/dl:/builder/dl \
-            -e OW_VER="${{ matrix.ow_ver }}" \
-            -e PASSWALL2_REPO="${{ env.passwall2 }}" \
-            -e GIT_REF="${{ github.ref_name }}" \
-            ${{ matrix.sdk_tag }} \
-            /workspace/.github/scripts/build-passwall2.sh
+    - name: Free disk space
+      run: |
+        sudo -E rm -rf /usr/share/dotnet /etc/mysql /etc/php /usr/local/lib/android
 
-          echo "status=success" >> $GITHUB_OUTPUT
+    - name: Cache OpenWrt dl
+      uses: actions/cache@v6
+      with:
+        path: dl
+        key: ${{ runner.os }}-openwrt-${{ matrix.sdk_ver }}-${{ matrix.platform }}
 
-      - name: 📦 Upload build artifact
-        if: steps.compile.outputs.status == 'success'
-        uses: actions/upload-artifact@v7
-        with:
-          name: passwall2-artifacts-${{ matrix.ow_ver }}
-          path: artifacts/*.apk
-          if-no-files-found: error
+    - name: Build in OpenWrt SDK Container
+      run: |
+        mkdir -p dl "staging/${{ matrix.sdk_ver }}/${{ matrix.platform }}"
+        chmod 777 dl "staging/${{ matrix.sdk_ver }}/${{ matrix.platform }}"
+        chmod +x .github/scripts/build-passwall-packages.sh
 
+        docker run --rm \
+          -v ${{ github.workspace }}:/workspace \
+          -v ${{ github.workspace }}/dl:/builder/dl \
+          -e MODE="${MODE}" \
+          -e CHANGED_DIRS="${CHANGED_DIRS:-}" \
+          -e SDK_VER="${{ matrix.sdk_ver }}" \
+          -e PLATFORM="${{ matrix.platform }}" \
+          -e PACKAGES_REPO="${{ env.packages }}" \
+          -e PASSWALL2_REPO="${{ env.passwall2 }}" \
+          ${{ matrix.sdk_tag }} \
+          /workspace/.github/scripts/build-passwall-packages.sh
 
-  job_release:
-    name: 3. Release & Deploy
-    needs: [job_check, job_build_passwall2]
-    if: needs.job_check.outputs.has_update == 'true'
+    - name: Fix dl cache permissions
+      if: always()
+      run: |
+        sudo chown -R "$(id -u):$(id -g)" dl || true
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ matrix.sdk_ver }}-${{ matrix.platform }}
+        path: staging/${{ matrix.sdk_ver }}/${{ matrix.platform }}
+
+  publish:
     runs-on: ubuntu-latest
+    needs: job_auto_compile
+    permissions:
+      contents: write
     steps:
-      - name: 🧾 Checkout repo
-        uses: actions/checkout@v7
-
-      - name: ⬇️ Download all build artifacts
-        uses: actions/download-artifact@v8
-        with:
-          pattern: passwall2-artifacts-*
-          path: ./release-assets
-          merge-multiple: true
-
-      - name: 📝 Prepare release text
-        run: |
-          echo "## :mega:Update content" >> release.txt
-          echo "![](https://img.shields.io/github/downloads/${{ github.repository }}/${{ needs.job_check.outputs.passwall2_version }}/total?style=flat-square)" >> release.txt
-          echo "### Passwall2 Info" >> release.txt
-          echo "**:minidisc: Passwall2 Version: ${{ needs.job_check.outputs.passwall2_version }}**" >> release.txt
-
-      - name: 🗃️ Create GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ needs.job_check.outputs.passwall2_version }}
-          make_latest: true
-          target_commitish: ${{ github.ref_name }}
-          prerelease: ${{ needs.job_check.outputs.prerelease == 'true' }}
-          body_path: release.txt
-          files: |
-            ./release-assets/*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 🔑 Checkout custom-packages repo
+      - name: 🔑 Checkout custom-packages
         uses: actions/checkout@v7
         with:
           repository: OneNAS-space/custom-packages
           token: ${{ secrets.CUSTOM_PACKAGES_TOKEN }}
           path: custom-packages
 
-      - name: 🚚 Update luci artifacts
+      - name: 📂 Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: 🚚 Consolidate into Repo
         run: |
-          set -e
-          CURRENT_PKG="luci-app-passwall2"
-          mkdir -p custom-packages/releases/packages-25.12/luci
-
-          echo "Cleaning all old versions for $CURRENT_PKG before updating..."
-          rm -f custom-packages/releases/packages-25.12/luci/${CURRENT_PKG}-*.apk
-
-          find ./release-assets -type f -name "*.apk" | while read -r f; do
+          set -euo pipefail
+          find ./artifacts -type f -name "*.apk" | while read -r f; do
             base=$(basename "$f")
-            echo "Deploying $base to releases/packages-25.12/luci/"
-            cp "$f" custom-packages/releases/packages-25.12/luci/
+            dir_name=$(basename $(dirname "$f"))
+            sdk_ver=$(echo "$dir_name" | cut -d- -f1)
+            platform=$(echo "$dir_name" | cut -d- -f2-)
+            dest_dir="custom-packages/releases/packages-$sdk_ver/$platform/packages"
+            mkdir -p "$dest_dir"
+            pkgname=$(echo "$base" | sed -E 's/-[0-9].*//')
+            rm -f "$dest_dir/${pkgname}"-*.apk
+            cp -v "$f" "$dest_dir/"
           done
 
-          echo "=== 25.12 Content ==="
-          ls -la custom-packages/releases/packages-25.12/luci/${CURRENT_PKG}* || echo "No APKs found"
-
+      - name: 🚀 Secure Push with Retries
+        run: |
           cd custom-packages
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add releases/packages-25.12/luci/
-
-          if git diff --staged --quiet; then
-            echo "No file changes are detected, skip the submission."
-          else
-            git commit -m "Update $CURRENT_PKG to ${{ needs.job_check.outputs.passwall2_version }}"
-            for i in {1..5}; do
-              git pull --rebase origin main && \
-              git push origin main && break || \
-              (echo "Conflict detected, retrying in 5s..." && sleep 5)
-            done
+          git add .
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
           fi
+          git commit -m "Auto update: ${{ github.repository }} - $(date +'%Y-%m-%d %H:%M:%S')"
+          for i in {1..5}; do
+            if git pull --rebase origin main && git push origin main; then
+              echo "✅ Push successful!"
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
