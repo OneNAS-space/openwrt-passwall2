@@ -1,6 +1,6 @@
 #!/bin/bash
 # .github/scripts/build-passwall2.sh
-#
+# Copyright (c) 2026 Jackie264 <OneNAS-space>
 
 set -euo pipefail
 
