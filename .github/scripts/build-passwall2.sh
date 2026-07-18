@@ -2,27 +2,6 @@
 # .github/scripts/build-passwall2.sh
 # Copyright (c) 2026 Jackie264 <OneNAS-space>
 
-#!/bin/bash
-# .github/scripts/build-passwall-packages.sh
-#
-# 在官方 openwrt/sdk 容器内执行。完整复刻原 workflow 里以下几步的逻辑，
-# 全部合并到一次 `docker run` 里跑完：
-#   1. 配置 feeds.conf.default，安装 feeds
-#   2. 打补丁：替换较新的 golang/rust 源码、刷新 patch-kernel.sh、
-#      修复 rust host 编译报错
-#   3. 生成最小 .config，按 MODE 选择要编译的包
-#   4. make download 下载源码
-#   5. 编译选中的包
-#   6. 把产出的 .apk 收集/改名到 /workspace/staging/<sdk_ver>/<platform>
-#
-# 环境变量（由 docker run -e 传入）：
-#   MODE            "changed" 或 "all"
-#   CHANGED_DIRS    MODE=changed 时，逗号分隔的变更目录列表，可能为空
-#   SDK_VER         OpenWrt 分支号，例如 "25.12"
-#   PLATFORM        当前矩阵平台标识，例如 "x86_64"
-#   PACKAGES_REPO   passwall_packages 源仓库 "owner/repo"
-#   PASSWALL2_REPO  passwall2 源仓库 "owner/repo"
-
 set -euo pipefail
 
 : "${MODE:?MODE is required}"
@@ -34,9 +13,6 @@ CHANGED_DIRS="${CHANGED_DIRS:-}"
 
 cd /builder
 
-# 防御性处理：部分 SDK tag（尤其是 main/SNAPSHOT 这类 nightly）镜像里只有一个
-# setup.sh 桩脚本，需要先执行才能展开真正的 SDK 内容；带具体版本号的稳定 tag
-# 通常已经内置好二进制，这一步是幂等的，不会有副作用。
 if [ ! -d ./scripts ]; then
   ./setup.sh
 fi
