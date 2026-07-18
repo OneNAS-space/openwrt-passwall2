@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2023 SMALLPROGRAM <https://github.com/smallprogram>
+# Copyright (c) 2026 Jackie264 <OneNAS-space>
 # Description: Auto compile luci-app-passwall2
 # Auto_compile_and_release.yml
 name: "Auto compile with openwrt sdk"
