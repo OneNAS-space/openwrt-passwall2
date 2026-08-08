@@ -1,0 +1,22 @@
+From ad2b827df682382ea6febe77a97be3cf23fec951 Mon Sep 17 00:00:00 2001
+From: Jackie264 <jackie.han@gmail.com>
+Date: Sat, 8 Aug 2026 08:21:11 +0800
+Subject: [PATCH] Change header format in shunt_rule_list template
+
+---
+ .../luasrc/view/passwall2/rule/shunt_rule_list.htm              | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm b/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
+index cc88b73d..cf119d56 100644
+--- a/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
++++ b/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
+@@ -355,7 +355,7 @@
+ 
+ <script type="text/template" id="shunt_rule-tr-template">
+ 	<tr class="tr cbi-section-table-row" id="cbi-<%=appname%>-{{id}}">
+-		<td class="td cbi-value-field"><h3>{{id}}</h3></td>
++		<td class="td cbi-value-field">{{id}}</td>
+ 		<td class="td cbi-value-field">{{remarks}}</td>
+ 		<td class="td cbi-section-table-cell nowrap cbi-section-actions td-actions">
+ 			<div class="shunt_rule-wrapper">
