@@ -47,11 +47,12 @@ jobs:
           set -e
 
           PATCH_LIST="
-            rule_lua.patch
-            uci-defaults.patch
             link_add_node.patch
             nodes_listvalue_com.patch
             nodes_value_com.patch
+            rule_lua.patch
+            shunt_rule_list.patch
+            uci-defaults.patch
           "
 
           for patch_file in $PATCH_LIST; do
