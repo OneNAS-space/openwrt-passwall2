@@ -1,0 +1,33 @@
+From: Jackie264 <jackie.han@gmail.com>
+Date: Sun, 9 Aug 2026 15:52:38 +0800
+Subject: [PATCH] Fix code scanning alerts and XSS vulnerabilities in node_list
+
+- Fix for code scanning alert no. 10: Incomplete multi-character sanitization.
+- Change innerHTML to textContent for node name to prevent XSS.
+
+Co-authored-by: Copilot Autofix powered by AI <62310815+github-advanced-security[bot]@users.noreply.github.com>
+---
+ luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm b/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
+--- a/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
++++ b/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
+@@ -1129,7 +1129,7 @@
+ 		add_node() {
+ 			let nodes_link = document.getElementById("nodes_link").value;
+ 			const group = (document.querySelector('#addlink_group_custom input[type="hidden"]')?.value || "default");
+-			nodes_link = nodes_link.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").replace(/<[^>]*>/g, '').trim();
++			nodes_link = nodes_link.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").replace(/[<>]/g, '').trim();
+ 			if (nodes_link != "") {
+ 				nodes_link = decodeIfBase64(nodes_link);
+ 				let s = nodes_link.split('://');
+@@ -1257,7 +1257,7 @@
+ 			this.section = cbi_id;
+ 			document.getElementById("set_node_div").style.display="block";
+ 			const node_name = document.getElementById("cbid.<%=appname%>." + cbi_id + ".remarks").value;
+-			document.getElementById("set_node_name").innerHTML = node_name;
++			document.getElementById("set_node_name").textContent = node_name;
+ 		},
+ 		close() {
+ 			document.getElementById("set_node_div").style.display="none";
