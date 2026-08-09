@@ -47,7 +47,6 @@ jobs:
           set -e
 
           PATCH_LIST="
-            link_add_node.patch
             nodes_listvalue_com.patch
             nodes_value_com.patch
             rule_lua.patch
