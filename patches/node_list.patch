@@ -1,16 +1,14 @@
+From 58f113b935bc35d3fab403c70a2bfdb78ccb136c Mon Sep 17 00:00:00 2001
 From: Jackie264 <jackie.han@gmail.com>
-Date: Sun, 9 Aug 2026 15:52:38 +0800
-Subject: [PATCH] Fix code scanning alerts and XSS vulnerabilities in node_list
+Date: Mon, 10 Aug 2026 06:04:36 +0800
+Subject: [PATCH] Update node link sanitization in node_list.htm
 
-- Fix for code scanning alert no. 10: Incomplete multi-character sanitization.
-- Change innerHTML to textContent for node name to prevent XSS.
-
-Co-authored-by: Copilot Autofix powered by AI <62310815+github-advanced-security[bot]@users.noreply.github.com>
 ---
- luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ .../luasrc/view/passwall2/node_list/node_list.htm               | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm b/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
+index d2d42741..8f045d30 100644
 --- a/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
 +++ b/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
 @@ -1129,7 +1129,7 @@
@@ -22,12 +20,3 @@ diff --git a/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm b/
  			if (nodes_link != "") {
  				nodes_link = decodeIfBase64(nodes_link);
  				let s = nodes_link.split('://');
-@@ -1257,7 +1257,7 @@
- 			this.section = cbi_id;
- 			document.getElementById("set_node_div").style.display="block";
- 			const node_name = document.getElementById("cbid.<%=appname%>." + cbi_id + ".remarks").value;
--			document.getElementById("set_node_name").innerHTML = node_name;
-+			document.getElementById("set_node_name").textContent = node_name;
- 		},
- 		close() {
- 			document.getElementById("set_node_div").style.display="none";
