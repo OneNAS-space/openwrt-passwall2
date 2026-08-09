@@ -1,17 +1,17 @@
-From 80882218d048e7ca4cd6c585804fd52c27b47c42 Mon Sep 17 00:00:00 2001
+From 3c20efe4be497e711f876875b53f930eb04d8612 Mon Sep 17 00:00:00 2001
 From: Jackie264 <jackie.han@gmail.com>
-Date: Sat, 8 Aug 2026 09:13:13 +0800
-Subject: [PATCH] Replace fieldset with div in shunt_rule_list template
+Date: Sun, 9 Aug 2026 16:33:03 +0800
+Subject: [PATCH] Replace fieldset with div in shunt_rule_list.htm
 
 ---
- .../luasrc/view/passwall2/rule/shunt_rule_list.htm     | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ .../luasrc/view/passwall2/rule/shunt_rule_list.htm        | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm b/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
-index cc88b73d..b5389350 100644
+index 6e5a6559..13302e5b 100644
 --- a/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
 +++ b/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
-@@ -336,7 +336,7 @@
+@@ -326,7 +326,7 @@
  
  
  <script type="text/template" id="shunt_rules-table-template">
@@ -20,7 +20,7 @@ index cc88b73d..b5389350 100644
  		<table class="table cbi-section-table" id="cbi-<%=appname%>-shunt_rules-{{group}}-table" style="">
  			<tr class="tr cbi-section-table-titles anonymous">
  				<th class="th cbi-section-table-cell" style="width:30%">ID</th>
-@@ -350,12 +350,12 @@
+@@ -340,7 +340,7 @@
  			<input class="cbi-button cbi-button-add" type="button" value="<%:Add%>" onclick="toPage('add')">
  			<input class="cbi-button cbi-button-apply" style="display: none" type="button" id="save_order_btn_{{group}}" value="<%:Save Order%>" onclick="save_current_page_order('{{group}}')">
  		</div>
@@ -29,13 +29,7 @@ index cc88b73d..b5389350 100644
  </script>
  
  <script type="text/template" id="shunt_rule-tr-template">
- 	<tr class="tr cbi-section-table-row" id="cbi-<%=appname%>-{{id}}">
--		<td class="td cbi-value-field"><h3>{{id}}</h3></td>
-+		<td class="td cbi-value-field">{{id}}</td>
- 		<td class="td cbi-value-field">{{remarks}}</td>
- 		<td class="td cbi-section-table-cell nowrap cbi-section-actions td-actions">
- 			<div class="shunt_rule-wrapper">
-@@ -438,7 +438,7 @@
+@@ -428,7 +428,7 @@ <h3>Sing-Box/Xray <%:Shunt Rule%></h3>
  			
  			function addTabDOM(li, content) {
  				let tab_ul_html = '<ul class="cbi-tabmenu">';
@@ -44,7 +38,7 @@ index cc88b73d..b5389350 100644
  				if (li) {
  					tab_ul_html += li;
  				}
-@@ -446,7 +446,7 @@
+@@ -436,7 +436,7 @@ <h3>Sing-Box/Xray <%:Shunt Rule%></h3>
  					tab_content_html += content;
  				}
  				tab_ul_html += '</ul>';
