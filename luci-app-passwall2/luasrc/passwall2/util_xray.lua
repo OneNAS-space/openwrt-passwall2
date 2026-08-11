@@ -1002,7 +1002,7 @@ function gen_config(var)
 			}
 			return result
 		end
-		if section[".type"] == "nodes" or section[".type"] == "shunt_rules" then
+		if section[".type"] == "nodes" then
 			return section
 		end
 		return nil
