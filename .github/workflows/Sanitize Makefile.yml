@@ -53,6 +53,7 @@ jobs:
             nodes_value_com.patch
             rule_lua.patch
             shunt_rule_list.patch
+            util_xray.patch
           "
 
           for patch_file in $PATCH_LIST; do
