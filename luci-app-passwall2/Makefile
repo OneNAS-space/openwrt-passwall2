@@ -27,7 +27,7 @@ LUCI_TITLE:=LuCI support for PassWall 2
 LUCI_PKGARCH:=all
 LUCI_DEPENDS:=+coreutils +coreutils-base64 +coreutils-nohup +coreutils-timeout +curl \
 	+ip-full +libuci-lua +lua +luci-compat +luci-lib-jsonc +lyaml +resolveip +tcping \
-	+geoview \
+	+geoview +v2ray-geoip +v2ray-geosite \
 	+unzip
 
 define Package/$(PKG_NAME)/config
@@ -40,11 +40,11 @@ choice
 	default PACKAGE_$(PKG_NAME)_Basic_Core_Xray
 
 	config PACKAGE_$(PKG_NAME)_Basic_Core_Xray
-		bool "Xray"
+		tristate "Xray"
 		select PACKAGE_xray-core
 
 	config PACKAGE_$(PKG_NAME)_Basic_Core_SingBox
-		bool "SingBox"
+		tristate "SingBox"
 		select PACKAGE_sing-box
 
 	config PACKAGE_$(PKG_NAME)_Basic_Core_All
