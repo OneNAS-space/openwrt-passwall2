@@ -495,7 +495,8 @@ table td, .table .td {
 		ajax.abortAll();
 		switch (action) {
 			case "add":
-				const dom = document.getElementsByClassName("cbi-tab")[0];
+				const master = document.getElementById("node_list");
+				const dom = master.getElementsByClassName("cbi-tab")[0];
 				const current_group = dom ? (dom.getAttribute("group_name") || "default") : "default";
 				window.location.href='<%=api.url("add_node")%>?redirect=1&group=' + current_group;
 				break;
@@ -1088,7 +1089,7 @@ table td, .table .td {
 		add_node() {
 			let nodes_link = document.getElementById("nodes_link").value;
 			const group = (document.querySelector('#addlink_group_custom input[type="hidden"]')?.value || "default");
-			nodes_link = nodes_link.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").replace(/[<>]/g, '').trim();
+			nodes_link = nodes_link.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").replace(/<[^>]*>/g, '').trim();
 			if (nodes_link != "") {
 				nodes_link = decodeIfBase64(nodes_link);
 				let s = nodes_link.split('://');
