@@ -48,11 +48,14 @@ jobs:
 
           PATCH_LIST="
             footer.patch
+            iptables.patch
+            nftables.patch
             node_list.patch
             nodes_listvalue_com.patch
             nodes_value_com.patch
             rule_lua.patch
             shunt_rule_list.patch
+            uci-defaults.patch
           "
 
           for patch_file in $PATCH_LIST; do
