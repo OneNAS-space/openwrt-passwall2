@@ -256,14 +256,11 @@ add_shunt_t_rule() {
 }
 
 load_acl() {
+	log_i18n 1 "Access Control:"
 	acl_json=$(lua $APP_PATH/app_acl.lua)
 	acl_node
-	log_i18n 1 "Access Control:"
 	for sid in $(jsonfilter -s "${acl_json}" -e '$.acl[*].flag'); do
 		eval local $(cat "${TMP_ACL_PATH}/${sid}/var")
-
-		[ "$tcp_no_redir_ports" = "disable" ] && tcp_no_redir_ports=""
-		[ "$udp_no_redir_ports" = "disable" ] && udp_no_redir_ports=""
 
 		[ -z "$(get_cache_var "${node}_gen_shunt_list")" ] && [ -n "${node}" ] && gen_shunt_list "${node}" shunt_list4 shunt_list6
 		[ -n "${use}" ] && local dns_redirect_port=$(get_cache_var "ACL_${use}_dns_port")
