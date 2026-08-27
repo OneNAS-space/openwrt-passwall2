@@ -1,0 +1,24 @@
+From e1ff3676c4417bee43d1fca34d1b31c0a501cd5f Mon Sep 17 00:00:00 2001
+From: Jackie264 <jackie.han@gmail.com>
+Date: Thu, 27 Aug 2026 10:21:50 +0800
+Subject: [PATCH] Handle disabling of redirection ports in iptables.sh
+
+Reset tcp_no_redir_ports and udp_no_redir_ports if disabled.
+---
+ luci-app-passwall2/root/usr/share/passwall2/iptables.sh | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/luci-app-passwall2/root/usr/share/passwall2/iptables.sh b/luci-app-passwall2/root/usr/share/passwall2/iptables.sh
+index 81d52c2cd..587aa2cd6 100755
+--- a/luci-app-passwall2/root/usr/share/passwall2/iptables.sh
++++ b/luci-app-passwall2/root/usr/share/passwall2/iptables.sh
+@@ -262,6 +262,9 @@ load_acl() {
+ 	for sid in $(jsonfilter -s "${acl_json}" -e '$.acl[*].flag'); do
+ 		eval local $(cat "${TMP_ACL_PATH}/${sid}/var")
+ 
++		[ "$tcp_no_redir_ports" = "disable" ] && tcp_no_redir_ports=""
++		[ "$udp_no_redir_ports" = "disable" ] && udp_no_redir_ports=""
++
+ 		[ -z "$(get_cache_var "${node}_gen_shunt_list")" ] && [ -n "${node}" ] && gen_shunt_list "${node}" shunt_list4 shunt_list6
+ 		[ -n "${use}" ] && local dns_redirect_port=$(get_cache_var "ACL_${use}_dns_port")
+ 
