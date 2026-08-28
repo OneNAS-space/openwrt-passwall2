@@ -300,9 +300,6 @@ load_acl() {
 	for sid in $(jsonfilter -s "${acl_json}" -e '$.acl[*].flag'); do
 		eval $(cat "${TMP_ACL_PATH}/${sid}/var")
 
-		[ "$tcp_no_redir_ports" = "disable" ] && tcp_no_redir_ports=""
-		[ "$udp_no_redir_ports" = "disable" ] && udp_no_redir_ports=""
-
 		[ -z "$(get_cache_var "${node}_gen_shunt_list")" ] && [ -n "${node}" ] && gen_shunt_list "${node}" shunt_list4 shunt_list6
 		[ -n "${use}" ] && local dns_redirect_port=$(get_cache_var "ACL_${use}_dns_port")
 
@@ -588,6 +585,7 @@ load_acl() {
 }
 
 filter_haproxy() {
+	[ "$(config_n_get @global_haproxy[0] balancing_enable 0)" != "1" ] && return
 	for item in $(uci show $CONFIG | grep ".lbss=" | cut -d "'" -f 2); do
 		get_host_ip ipv4 $(echo $item | awk -F ":" '{print $1}') 1
 	done | insert_nftset $NFTSET_VPS "-1"
@@ -605,10 +603,16 @@ filter_vps_addr() {
 }
 
 filter_vpsip() {
-	uci show $CONFIG | grep -E "(.address=|.download_address=)" | cut -d "'" -f 2 | grep -E "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | grep -v "^127\.0\.0\.1$" | insert_nftset $NFTSET_VPS "-1"
-	#log 1 "$(i18n "Add all %s nodes to %s[%s] direct connection complete." "IPv4" "nftset" "${$NFTSET_VPS}")"
-	uci show $CONFIG | grep -E "(.address=|.download_address=)" | cut -d "'" -f 2 | grep -E "([A-Fa-f0-9]{1,4}::?){1,7}[A-Fa-f0-9]{1,4}" | insert_nftset $NFTSET_VPS6 "-1"
-	#log 1 "$(i18n "Add all %s nodes to %s[%s] direct connection complete." "IPv6" "nftset" "${$NFTSET_VPS6}")"
+	local ipv4_addrs=$(uci show $CONFIG | grep -E "(.address=|.download_address=)" | cut -d "'" -f 2 | grep -E "([0-9]{1,3}[\.]){3}[0-9]{1,3}" | grep -v "^127\.0\.0\.1$")
+	[ -n "$ipv4_addrs" ] && {
+		echo "$ipv4_addrs" | insert_nftset $NFTSET_VPS "-1"
+		log_i18n 1 "Add all %s nodes to %s[%s] direct connection complete." "IPv4" "nftset" "${NFTSET_VPS}"
+	}
+	local ipv6_addrs=$(uci show $CONFIG | grep -E "(.address=|.download_address=)" | cut -d "'" -f 2 | grep -E "([A-Fa-f0-9]{1,4}::?){1,7}[A-Fa-f0-9]{1,4}")
+	[ -n "$ipv6_addrs" ] && {
+		echo "$ipv6_addrs" | insert_nftset $NFTSET_VPS6 "-1"
+		log_i18n 1 "Add all %s nodes to %s[%s] direct connection complete." "IPv6" "nftset" "${NFTSET_VPS6}"
+	}
 }
 
 filter_server_port() {
