@@ -6,7 +6,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-passwall2
-PKG_VERSION:=26.8.27
+PKG_VERSION:=26.9.2
 PKG_RELEASE:=1
 PKG_PO_VERSION:=$(PKG_VERSION)
 
@@ -25,7 +25,7 @@ LUCI_TITLE:=LuCI support for PassWall 2
 LUCI_PKGARCH:=all
 LUCI_DEPENDS:=+coreutils +coreutils-base64 +coreutils-nohup +coreutils-timeout +curl \
 	+ip-full +libuci-lua +lua +luci-compat +luci-lib-jsonc +lyaml +resolveip +tcping \
-	+geoview \
+	+geoview +v2ray-geoip +v2ray-geosite \
 	+unzip
 
 define Package/$(PKG_NAME)/config
