@@ -58,13 +58,9 @@ local sid = "@global[0]"
 		if (!node_select_value || node_select_value.indexOf("_default") === 0 || node_select_value.indexOf("_direct") === 0 || node_select_value.indexOf("_blackhole") === 0) {
 			return;
 		}
-		if (!/^[A-Za-z0-9_.-]+$/.test(node_select_value)) {
-			return;
-		}
-		const encoded_node_select_value = encodeURIComponent(node_select_value);
-		let to_url = '<%=api.url("node_config")%>/' + encoded_node_select_value;
+		let to_url = '<%=api.url("node_config")%>/' + node_select_value;
 		if (node_select_value.indexOf("socks_") === 0) {
-			to_url = '<%=api.url("socks_config")%>/' + encoded_node_select_value;
+			to_url = '<%=api.url("socks_config")%>/' + node_select_value;
 		}
 		location.href = to_url;
 	}
