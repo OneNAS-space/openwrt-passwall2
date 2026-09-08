@@ -262,6 +262,9 @@ load_acl() {
 	for sid in $(jsonfilter -s "${acl_json}" -e '$.acl[*].flag'); do
 		eval local $(cat "${TMP_ACL_PATH}/${sid}/var")
 
+		[ "$tcp_no_redir_ports" = "disable" ] && tcp_no_redir_ports=""
+		[ "$udp_no_redir_ports" = "disable" ] && udp_no_redir_ports=""
+
 		[ -z "$(get_cache_var "${node}_gen_shunt_list")" ] && [ -n "${node}" ] && gen_shunt_list "${node}" shunt_list4 shunt_list6
 		[ -n "${use}" ] && local dns_redirect_port=$(get_cache_var "ACL_${use}_dns_port")
 
