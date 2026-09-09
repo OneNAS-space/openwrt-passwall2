@@ -59,7 +59,6 @@ function gen_outbound(flag, node, tag, proxy_table)
 		local remarks = node.remarks
 
 		local proxy_tag = nil
-		local dialer_proxy_tag = nil
 		local fragment = nil
 		local noise = nil
 		local run_socks_instance = true
@@ -98,7 +97,12 @@ function gen_outbound(flag, node, tag, proxy_table)
 			node.stream_security = "none"
 			proxy_tag = "socks <- " .. node_id
 		else
-			dialer_proxy_tag = proxy_tag
+			if proxy_tag then
+				node.proxySettings = {
+					tag = proxy_tag,
+					transportLayer = true
+				}
+			end
 		end
 		
 		if node.type == "Xray" then
@@ -142,6 +146,7 @@ function gen_outbound(flag, node, tag, proxy_table)
 			_flag = flag,
 			_flag_proxy_tag = proxy_tag,
 			tag = tag,
+			proxySettings = node.proxySettings or nil,
 			protocol = node.protocol,
 			mux = {
 				enabled = (node.mux == "1") and true or false,
@@ -159,8 +164,7 @@ function gen_outbound(flag, node, tag, proxy_table)
 						PrioritizeIPv6 = false,
 						Interleave = 1,
 						MaxConcurrentTry = 4
-					} or nil,
-					dialerProxy = dialer_proxy_tag,
+					} or nil
 				},
 				[(api.compare_versions(xray_version, "<", "26.7.11")) and "network" or "method"] = node.transport, -- Todo: Remove version check and "network"
 				security = node.stream_security,
@@ -1204,9 +1208,10 @@ function gen_config(var)
 					end
 					if preproxy_outbound then
 						outbound.tag = preproxy_outbound.tag .. " -> " .. outbound.tag
-						outbound.streamSettings = outbound.streamSettings or {}
-						outbound.streamSettings.sockopt = outbound.streamSettings.sockopt or {}
-						outbound.streamSettings.sockopt.dialerProxy = preproxy_outbound.tag
+						outbound.proxySettings = {
+							tag = preproxy_outbound.tag,
+							transportLayer = true
+						}
 						if not exist then
 							last_insert_outbound = preproxy_outbound
 						end
@@ -1254,9 +1259,10 @@ function gen_config(var)
 				if to_outbound then
 					to_outbound.tag = outbound.tag .. " -> " .. to_outbound.tag
 					if to_node.type == "Xray" then
-						to_outbound.streamSettings = to_outbound.streamSettings or {}
-						to_outbound.streamSettings.sockopt = to_outbound.streamSettings.sockopt or {}
-						to_outbound.streamSettings.sockopt.dialerProxy = outbound.tag
+						to_outbound.proxySettings = {
+							tag = outbound.tag,
+							transportLayer = true
+						}
 					end
 					table.insert(outbounds_table, to_outbound)
 					default_outTag = to_outbound.tag
