@@ -1,14 +1,15 @@
-From 67b26c341a1377b9a6683d046dfbea6386b50a82 Mon Sep 17 00:00:00 2001
+From 0e3b1eb0ae7932cd8a009774ff75d31d19094948 Mon Sep 17 00:00:00 2001
 From: Jackie264 <jackie.han@gmail.com>
-Date: Wed, 9 Sep 2026 07:33:56 +0800
-Subject: [PATCH] Refactor proxy settings to use dialer proxy tag
+Date: Wed, 9 Sep 2026 09:36:26 +0800
+Subject: [PATCH] Refactor proxy settings to use dialer_proxy_tag
 
+To fix `errors: The feature outbound "proxySettings" has been removed and migrated to "streamSettings.sockopt.dialerProxy".`
 ---
- .../luasrc/passwall2/util_xray.lua            | 26 +++++++------------
- 1 file changed, 10 insertions(+), 16 deletions(-)
+ .../luasrc/passwall2/util_xray.lua            | 28 ++++++++-----------
+ 1 file changed, 11 insertions(+), 17 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/passwall2/util_xray.lua b/luci-app-passwall2/luasrc/passwall2/util_xray.lua
-index f006efae..59681cb5 100644
+index f006efaee..6befb203a 100644
 --- a/luci-app-passwall2/luasrc/passwall2/util_xray.lua
 +++ b/luci-app-passwall2/luasrc/passwall2/util_xray.lua
 @@ -59,6 +59,7 @@ function gen_outbound(flag, node, tag, proxy_table)
@@ -33,7 +34,7 @@ index f006efae..59681cb5 100644
  		end
  		
  		if node.type == "Xray" then
-@@ -146,7 +142,6 @@ function gen_outbound(flag, node, tag, proxy_table)
+@@ -146,14 +142,13 @@ function gen_outbound(flag, node, tag, proxy_table)
  			_flag = flag,
  			_flag_proxy_tag = proxy_tag,
  			tag = tag,
@@ -41,6 +42,14 @@ index f006efae..59681cb5 100644
  			protocol = node.protocol,
  			mux = {
  				enabled = (node.mux == "1") and true or false,
+ 				concurrency = (node.mux == "1" and ((node.mux_concurrency) and tonumber(node.mux_concurrency) or -1)) or nil,
+ 				xudpConcurrency = (node.mux == "1" and ((node.xudp_concurrency) and tonumber(node.xudp_concurrency) or 8)) or nil
+ 			} or nil,
+-			streamSettings = (node.streamSettings or node.protocol == "vmess" or node.protocol == "vless" or node.protocol == "socks" or node.protocol == "shadowsocks" or node.protocol == "trojan" or node.protocol == "hysteria") and {
++			streamSettings = (node.streamSettings or dialer_proxy_tag or node.protocol == "vmess" or node.protocol == "vless" or node.protocol == "socks" or node.protocol == "shadowsocks" or node.protocol == "trojan" or node.protocol == "hysteria") and {
+ 				sockopt = {
+ 					mark = 255,
+ 					domainStrategy = node.domain_strategy or "UseIP",
 @@ -164,7 +159,8 @@ function gen_outbound(flag, node, tag, proxy_table)
  						PrioritizeIPv6 = false,
  						Interleave = 1,
