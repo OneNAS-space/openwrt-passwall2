@@ -1,7 +1,7 @@
-From 6659729131646673b7c997f9a09dec35dd2e4b72 Mon Sep 17 00:00:00 2001
+From 8cfea2c64c2ae50b78df5fb99a2fbdd8d4d23a45 Mon Sep 17 00:00:00 2001
 From: Jackie264 <jackie.han@gmail.com>
-Date: Sun, 20 Sep 2026 07:42:26 +0800
-Subject: [PATCH] Implement retry logic for dnsmasq config file
+Date: Sun, 20 Sep 2026 17:14:35 +0800
+Subject: [PATCH] Implement retry logic for dnsmasq config file access
 
 Add retry mechanism for dnsmasq config file access
 ---
@@ -9,7 +9,7 @@ Add retry mechanism for dnsmasq config file access
  1 file changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/luci-app-passwall2/root/usr/share/passwall2/helper_dnsmasq.lua b/luci-app-passwall2/root/usr/share/passwall2/helper_dnsmasq.lua
-index c3e902a31..fd7aabde2 100644
+index c3e902a31..8520ea009 100644
 --- a/luci-app-passwall2/root/usr/share/passwall2/helper_dnsmasq.lua
 +++ b/luci-app-passwall2/root/usr/share/passwall2/helper_dnsmasq.lua
 @@ -120,8 +120,17 @@ function copy_instance(var)
@@ -19,11 +19,11 @@ index c3e902a31..fd7aabde2 100644
 -	if fs.access("/var/etc/dnsmasq.conf." .. DEFAULT_DNSMASQ_CFGID) then
 -		for line in io.lines("/var/etc/dnsmasq.conf." .. DEFAULT_DNSMASQ_CFGID) do
 +	
-+	local conf_file = "/tmp/etc/dnsmasq.conf." .. DEFAULT_DNSMASQ_CFGID
++	local conf_file = "/var/etc/dnsmasq.conf." .. DEFAULT_DNSMASQ_CFGID
 +	
 +	local retry = 5
 +	while not fs.access(conf_file) and retry > 0 do
-+		sys.call("sleep 1")
++		api.nixio.nanosleep(1, 0)
 +		retry = retry - 1
 +	end
 +
