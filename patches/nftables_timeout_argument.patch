@@ -1,0 +1,38 @@
+From ce1f425cc30ef62d71e0092e557d133a2cf49ed4 Mon Sep 17 00:00:00 2001
+From: Jackie Han <jackie.han@gmail.com>
+Date: Thu, 1 Oct 2026 10:01:42 +0800
+Subject: [PATCH] Set default timeout to -1 in insert_nftset function
+
+---
+ luci-app-passwall2/root/usr/share/passwall2/nftables.sh | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/luci-app-passwall2/root/usr/share/passwall2/nftables.sh b/luci-app-passwall2/root/usr/share/passwall2/nftables.sh
+index 12b76c8c..45fb6428 100755
+--- a/luci-app-passwall2/root/usr/share/passwall2/nftables.sh
++++ b/luci-app-passwall2/root/usr/share/passwall2/nftables.sh
+@@ -149,7 +149,7 @@ gen_nft_tables() {
+ 
+ insert_nftset() {
+ 	local nftset_name="${1}"; shift
+-	local timeout_argument="${1}"; shift
++	local timeout_argument="${1:--1}"; shift
+ 	local default_timeout="365d"
+ 	local suffix=""
+ 
+@@ -692,13 +692,13 @@ update_wan_sets() {
+ 		local WAN_IP=$(get_wan_ips ip4)
+ 		[ -n "$WAN_IP" ] && {
+ 			# nft flush set $NFTABLE_NAME $NFTSET_WAN
+-			echo "$WAN_IP" | insert_nftset $NFTSET_WAN
++			echo "$WAN_IP" | insert_nftset $NFTSET_WAN "-1"
+ 		}
+ 
+ 		local WAN6_IP=$(get_wan_ips ip6)
+ 		[ -n "${WAN6_IP}" ] && {
+ 			# nft flush set $NFTABLE_NAME $NFTSET_WAN6
+-			echo "$WAN6_IP" | insert_nftset $NFTSET_WAN6
++			echo "$WAN6_IP" | insert_nftset $NFTSET_WAN6 "-1"
+ 		}
+ 	) 9>"${LOCK_PATH}/${CONFIG}_update_wan_sets.lock"
+ }
