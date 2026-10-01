@@ -49,6 +49,7 @@ jobs:
           PATCH_LIST="
             footer.patch
             helper_dnsmasq_lua.patch
+            nftables_timeout_argument.patch
             node_list.patch
             nodes_listvalue_com.patch
             nodes_value_com.patch
