@@ -32,6 +32,16 @@ uci commit firewall
 
 [ ! -s "/etc/config/passwall2" ] && cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
 
+if [ -s "/etc/config/passwall2" ]; then
+	_patched=0
+	for _bad_key in $(uci -q show passwall2 | grep -E "\.(tcp|udp)_no_redir_ports='disable'" | cut -d '=' -f 1); do
+		uci -q set "$_bad_key="
+		_patched=1
+	done
+	
+	[ "$_patched" -eq 1 ] && uci commit passwall2
+fi
+
 chmod +x /usr/share/passwall2/*.sh
 
 rm -f /tmp/luci-indexcache /tmp/luci-indexcache.*
