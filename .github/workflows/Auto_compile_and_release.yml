@@ -102,7 +102,7 @@ jobs:
       matrix:
         include:
           - ow_ver: "25.12"
-            sdk_tag: "openwrt/sdk:x86_64-25.12.5"
+            sdk_tag: "openwrt/sdk:x86_64-25.12.6"
 
     steps:
       - name: Checkout
