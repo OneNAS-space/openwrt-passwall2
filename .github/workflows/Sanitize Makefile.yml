@@ -19,28 +19,62 @@ jobs:
 
       - name: Remove unwanted deps from LUCI_DEPENDS
         run: |
-          changed=0
-          for f in $(git ls-files '**/Makefile'); do
-            echo "Processing $f"
-            before=$(md5sum "$f")
+          python3 - << 'EOF'
+          import glob
 
-            for dep in geoview xray-core v2ray-geoip v2ray-geosite; do
-              if grep -q "\+$dep" "$f"; then
-                echo "Removed +$dep from $f"
-                sed -i "s/^\([[:space:]]*\)+$dep[[:space:]]*/\1/" "$f"
-                sed -i "s/ +$dep//g" "$f"
-              fi
-            done
+          unwanted = {"geoview", "xray-core", "v2ray-geoip", "v2ray-geosite"}
+          changed = False
 
-            after=$(md5sum "$f")
-            if [ "$before" != "$after" ]; then
-              changed=1
-            fi
-          done
-          
-          if [ $changed -eq 0 ]; then
-            echo "No unwanted deps found"
-          fi
+          for filepath in glob.glob("**/Makefile", recursive=True):
+              with open(filepath, "r", encoding="utf-8") as f:
+                  content = f.read()
+
+              if "LUCI_DEPENDS:=" not in content:
+                  continue
+
+              lines = content.splitlines(keepends=True)
+              new_lines = []
+              i = 0
+              file_changed = False
+
+              while i < len(lines):
+                  line = lines[i]
+                  if line.startswith("LUCI_DEPENDS:="):
+                      dep_lines = [line]
+                      while line.rstrip().endswith("\\") and i + 1 < len(lines):
+                          i += 1
+                          line = lines[i]
+                          dep_lines.append(line)
+                      
+                      full_text = "".join([l.strip().rstrip("\\").strip() for l in dep_lines])
+                      prefix, deps_part = full_text.split(":=", 1)
+                      
+                      tokens = deps_part.split()
+                      filtered_tokens = []
+                      for token in tokens:
+                          clean_name = token.lstrip("+")
+                          if clean_name in unwanted:
+                              file_changed = True
+                              print(f"Removed {token} from {filepath}")
+                          else:
+                              filtered_tokens.append(token)
+                      
+                      new_line = f"{prefix}:=" + " ".join(filtered_tokens) + "\n"
+                      new_lines.append(new_line)
+                  else:
+                      new_lines.append(line)
+                  i += 1
+
+              if file_changed:
+                  with open(filepath, "w", encoding="utf-8") as f:
+                      f.writelines(new_lines)
+                  changed = True
+
+          if not changed:
+              print("No unwanted deps found")
+          else:
+              print("Successfully cleaned LUCI_DEPENDS")
+          EOF
 
       - name: Apply Custom Patches Pipeline
         run: |
