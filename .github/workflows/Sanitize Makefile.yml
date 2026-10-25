@@ -46,7 +46,7 @@ jobs:
                           line = lines[i]
                           dep_lines.append(line)
                       
-                      full_text = "".join([l.strip().rstrip("\\").strip() for l in dep_lines])
+                      full_text = " ".join([l.strip().rstrip("\\").strip() for l in dep_lines])
                       prefix, deps_part = full_text.split(":=", 1)
                       
                       tokens = deps_part.split()
