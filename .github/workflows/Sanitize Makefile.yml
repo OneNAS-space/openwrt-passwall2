@@ -24,7 +24,7 @@ jobs:
             echo "Processing $f"
             before=$(md5sum "$f")
 
-            for dep in xray-core v2ray-geoip v2ray-geosite; do
+            for dep in geoview xray-core v2ray-geoip v2ray-geosite; do
               if grep -q "\+$dep" "$f"; then
                 echo "Removed +$dep from $f"
                 sed -i "s/^\([[:space:]]*\)+$dep[[:space:]]*/\1/" "$f"
