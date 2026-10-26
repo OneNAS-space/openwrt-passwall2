@@ -1,18 +1,40 @@
-From e115ba1277851b0ce0806558806ad345e6ac09cd Mon Sep 17 00:00:00 2001
+From b9b0f4da5a3f7f6d85cd413d47b0802d8f47367d Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
-Date: Mon, 26 Oct 2026 10:48:00 +0800
-Subject: [PATCH] Refactor JSON parsing and URL encoding in node_list.htm
+Date: Mon, 26 Oct 2026 13:31:00 +0800
+Subject: [PATCH] Refactor node_list.htm for improved encoding and layout
 
-Updated the JavaScript code to use JSON.parse instead of eval for parsing JSON responses. Added encodeURIComponent to URL parameters for better handling of special characters.
 ---
- .../view/passwall2/node_list/node_list.htm    | 166 +++++++++++++-----
- 1 file changed, 125 insertions(+), 41 deletions(-)
+ .../view/passwall2/node_list/node_list.htm    | 236 ++++++++++++++----
+ 1 file changed, 194 insertions(+), 42 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm b/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
-index d5fc02359..b8ba187d9 100644
+index d5fc02359..19e870ab9 100644
 --- a/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
 +++ b/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
-@@ -540,7 +540,7 @@
+@@ -453,10 +453,21 @@
+ 		min-width: 6em;
+ 		max-width: 22em;
+ 		height: auto;
+-		padding: 0.15em 0.3em;
+ 		margin: 0;
+ 	}
+ 
++	.pw-filter input[type="search"],
++	.pw-filter .cbi-button {
++		padding: 0.15em 0.3em;
++	}
++
++	/* Only tighten the vertical padding of the dropdowns. The horizontal padding belongs to the theme:
++	   it reserves the room for the dropdown arrow, and overriding it makes long labels run under the arrow. */
++	.pw-filter select {
++		padding-top: 0.15em;
++		padding-bottom: 0.15em;
++	}
++
+ 	.pw-filter .pw-filter-count {
+ 		opacity: 0.8;
+ 	}
+@@ -540,7 +551,7 @@
  					var json = null;
  					if (xhr.getResponseHeader("Content-Type") == "application/json") {
  						try {
@@ -21,7 +43,7 @@ index d5fc02359..b8ba187d9 100644
  						}
  						catch(e) {
  							json = null;
-@@ -583,22 +583,25 @@
+@@ -583,22 +594,25 @@
  				const master = document.getElementById("node_list");
  				const dom = master.getElementsByClassName("cbi-tab")[0];
  				const current_group = dom ? (dom.getAttribute("group_name") || "default") : "default";
@@ -52,7 +74,7 @@ index d5fc02359..b8ba187d9 100644
  				const parent = row.parentNode;
  				let firstDataRow = parent.querySelector("tr:not(.cbi-section-table-titles)");
  				if (firstDataRow && firstDataRow !== row) {
-@@ -1005,7 +1008,7 @@
+@@ -1005,7 +1019,7 @@
  	// List drag and rearrange
  	function initSortableForTable(table) {
  		if (!table) return null;
@@ -61,7 +83,7 @@ index d5fc02359..b8ba187d9 100644
  		var root = table.querySelector('tbody') || table;
  		if (root._sortable_initialized) return root._sortable_instance;
  		root._sortable_initialized = true;
-@@ -1056,8 +1059,11 @@
+@@ -1056,8 +1070,11 @@
  		}
  	}
  
@@ -74,7 +96,7 @@ index d5fc02359..b8ba187d9 100644
  			"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
  		}[c]));
  	}
-@@ -1170,6 +1176,35 @@
+@@ -1170,6 +1187,35 @@
  			: null;
  	}
  
@@ -110,7 +132,7 @@ index d5fc02359..b8ba187d9 100644
  	const add_link_div = {
  		open() {
  			document.body.classList.add('modal-open');
-@@ -1189,34 +1224,69 @@
+@@ -1189,34 +1235,69 @@
  			document.body.classList.remove('modal-open');
  		},
  		add_node() {
@@ -159,10 +181,10 @@ index d5fc02359..b8ba187d9 100644
 +				alert("<%:Please enter the correct link.%>");
  				document.getElementById("nodes_link").focus();
 +				return;
- 			}
++			}
 +			if (invalidLines.length > 0) {
 +				alert("<%:The following lines failed to parse or contained invalid characters:%>\n\n" + invalidLines.join("\n"));
-+			}
+ 			}
 +			this.close();
 +			this.ajax_add_node(validNodes.join("\n"), group);
  		},
@@ -194,7 +216,7 @@ index d5fc02359..b8ba187d9 100644
  					const xhr = new XMLHttpRequest();
  					xhr.open('POST', '<%=api.url("link_add_node")%>', true);
  					xhr.onload = function () {
-@@ -1254,7 +1324,7 @@
+@@ -1254,7 +1335,7 @@
  	const reassign_group_div = {
  		open() {
  			const ids = [];
@@ -203,7 +225,7 @@ index d5fc02359..b8ba187d9 100644
  			if (!visibleContainer) return;
  			const doms = visibleContainer.getElementsByClassName("nodes_select");
  			if (doms && doms.length > 0) {
-@@ -1286,7 +1356,7 @@
+@@ -1286,7 +1367,7 @@
  		action() {
  			const ids = [];
  			const group = (document.querySelector('#reassign_group_custom input[type="hidden"]')?.value || "default");
@@ -212,7 +234,7 @@ index d5fc02359..b8ba187d9 100644
  			if (!visibleContainer) return;
  			const doms = visibleContainer.getElementsByClassName("nodes_select");
  			if (doms && doms.length > 0) {
-@@ -1328,7 +1398,7 @@
+@@ -1328,7 +1409,7 @@
  		set(type, config) {
  			if (confirm('<%:Are you sure set this node?%>') == true){
  				ajax.abortAll();
@@ -221,7 +243,7 @@ index d5fc02359..b8ba187d9 100644
  			}
  		}
  	}
-@@ -1385,7 +1455,7 @@
+@@ -1385,7 +1466,7 @@
  		<td class="td cbi-value-field pw-urltest">{{url_test}}</td>
  		<td class="td cbi-section-table-cell nowrap cbi-section-actions pw-actions">
  			<div class="node-wrapper">
@@ -230,7 +252,67 @@ index d5fc02359..b8ba187d9 100644
  				<input class="btn cbi-button cbi-button-apply" type="button" value="<%:Use%>" id="apply_{{id}}" onclick="set_node_div.open('{{id}}')"/>
  				<input class="btn cbi-button cbi-button-add" type="button" value="<%:Copy%>" onclick="node_action('copy', '{{id}}')"/>
  				<input class="btn cbi-button cbi-button-edit" type="button" value="<%:Edit%>" onclick="node_action('edit', '{{id}}')" alt="<%:Edit%>" title="<%:Edit%>">
-@@ -1431,7 +1501,8 @@
+@@ -1427,11 +1508,68 @@
+ 	if (window.pw2NodeSort)
+ 		pw2NodeSort.init();
+ 
++	// Align the filter bar (created by node_list_sort.js) with the left edge of the first tab.
++	// The offset is measured instead of hard-coded, because it depends on the theme.
++	function pw_align_filter() {
++		const menu = document.querySelector("#node_list .cbi-tabmenu");
++		const tab = menu ? menu.querySelector("li") : null;
++		if (!tab) return;
++		const targetLeft = tab.getBoundingClientRect().left;
++		const menuBottom = menu.getBoundingClientRect().bottom;
++		document.querySelectorAll("#node_list .pw-filter").forEach(function(f) {
++			if (f.getClientRects().length === 0) return; // filter of a hidden tab
++
++			// Horizontal: line up with the first tab.
++			// Padding does not move the left border edge, so the current padding does not disturb the measurement.
++			const pad = Math.max(0, Math.round(targetLeft - f.getBoundingClientRect().left)) + "px";
++			if (f.style.paddingLeft !== pad)
++				f.style.paddingLeft = pad;
++
++			// Vertical: keep the bar as close to the tab bar as its own default margin (0.4em).
++			// Some themes add a large gap below the tabs (e.g. bootstrap: 18px margin + 9px fieldset padding);
++			// measure it and cancel the surplus with the top margin. A theme whose gap already matches is left alone.
++			const style = window.getComputedStyle(f);
++			const want = (parseFloat(style.fontSize) || 14) * 0.4;
++			const gap = f.getBoundingClientRect().top - menuBottom;
++			if (Math.abs(gap - want) > 3) {
++				const cur = parseFloat(style.marginTop) || 0;
++				f.style.marginTop = (cur + want - gap) + "px";
++			}
++		});
++	}
++
++	// Also re-align after every tab switch, including switches made by LuCI itself.
++	if (typeof cbi_t_switch === "function") {
++		const ori_switch_for_filter = cbi_t_switch;
++		cbi_t_switch = function(section, tab) {
++			const ret = ori_switch_for_filter(section, tab);
++			pw_align_filter();
++			return ret;
++		};
++	}
++
++	// Re-align whenever the list is (re)built or the filter bar is re-rendered, and on resize.
++	(function() {
++		const root = document.getElementById("node_list");
++		if (!root || typeof MutationObserver === "undefined") return;
++		let queued = false;
++		new MutationObserver(function() {
++			if (queued) return;
++			queued = true;
++			requestAnimationFrame(function() {
++				queued = false;
++				pw_align_filter();
++			});
++		}).observe(root, { childList: true, subtree: true });
++		window.addEventListener("resize", pw_align_filter);
++	})();
++
+ 	function get_remarks_name(o) {
  		let str = "";
  		let remarks = o["remarks"] || "";
  		let type = o["type"] || "";
@@ -240,7 +322,7 @@ index d5fc02359..b8ba187d9 100644
  		if (type == "sing-box" || type == "Xray") {
  			let protocol = o["protocol"]
  			let p = "";
-@@ -1479,10 +1550,11 @@
+@@ -1479,10 +1617,11 @@
  		} else {
  			port_s = o["hysteria_hop"] || o["hysteria2_hop"];
  		}
@@ -254,7 +336,7 @@ index d5fc02359..b8ba187d9 100644
  		}
  		return str;
  	}
-@@ -1517,7 +1589,7 @@
+@@ -1517,7 +1656,7 @@
  					//Node List
  					var new_nodes_table_dom = nodes_table_template.cloneNode(true);
  					var _html = new_nodes_table_dom.innerHTML;
@@ -263,7 +345,7 @@ index d5fc02359..b8ba187d9 100644
  					var node_tr_html = "";
  					for (var i = 0; i < group_nodes[group].length; i++) {
  						let o = group_nodes[group][i]
-@@ -1539,23 +1611,24 @@
+@@ -1539,23 +1678,24 @@
  						} else {
  							innerHTML = innerHTML.split("{{url_test}}").join('<span class="ping_value"><a href="javascript:void(0)" style="color:inherit">---</a></span>');
  						}
@@ -295,7 +377,7 @@ index d5fc02359..b8ba187d9 100644
  
  						node_tr_html += innerHTML
  					}
-@@ -1568,12 +1641,15 @@
+@@ -1568,12 +1708,15 @@
  					group_name = "<%:default%>"
  				}
  
@@ -314,7 +396,7 @@ index d5fc02359..b8ba187d9 100644
  					'' + table_html +
  					'</div>'
  			}
-@@ -1594,6 +1670,14 @@
+@@ -1594,6 +1737,14 @@
  
  			document.getElementById("node_list").innerHTML = addTabDOM(tab_ul_li_html, tab_content_html);
  
@@ -329,7 +411,15 @@ index d5fc02359..b8ba187d9 100644
  			for (let group in group_nodes) {
  				cbi_t_add("<%=appname%>.nodes", group)
  			}
-@@ -1796,7 +1880,7 @@ <h3><%:Reassign Node Group%></h3>
+@@ -1629,6 +1780,7 @@
+ 			pingAllNodes();
+ 			if (window.pw2NodeSort)
+ 				pw2NodeSort.enhanceAll();
++			pw_align_filter();
+ 		});
+ 	}
+ 
+@@ -1796,7 +1948,7 @@ <h3><%:Reassign Node Group%></h3>
  			<%- if #shunt_rule_list > 0 then
  				for i, v in ipairs(shunt_rule_list) do
  			-%>
