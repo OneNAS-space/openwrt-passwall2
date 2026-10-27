@@ -453,8 +453,19 @@ table td, .table .td {
 		min-width: 6em;
 		max-width: 22em;
 		height: auto;
-		padding: 0.15em 0.3em;
 		margin: 0;
+	}
+
+	.pw-filter input[type="search"],
+	.pw-filter .cbi-button {
+		padding: 0.15em 0.3em;
+	}
+
+	/* Only tighten the vertical padding of the dropdowns. The horizontal padding belongs to the theme:
+	   it reserves the room for the dropdown arrow, and overriding it makes long labels run under the arrow. */
+	.pw-filter select {
+		padding-top: 0.15em;
+		padding-bottom: 0.15em;
 	}
 
 	.pw-filter .pw-filter-count {
@@ -540,7 +551,7 @@ table td, .table .td {
 					var json = null;
 					if (xhr.getResponseHeader("Content-Type") == "application/json") {
 						try {
-							json = eval('(' + xhr.responseText + ')');
+							json = JSON.parse(xhr.responseText);
 						}
 						catch(e) {
 							json = null;
@@ -583,22 +594,25 @@ table td, .table .td {
 				const master = document.getElementById("node_list");
 				const dom = master.getElementsByClassName("cbi-tab")[0];
 				const current_group = dom ? (dom.getAttribute("group_name") || "default") : "default";
-				window.location.href='<%=api.url("add_node")%>?redirect=1&group=' + current_group;
+				window.location.href='<%=api.url("add_node")%>?redirect=1&group=' + encodeURIComponent(current_group);
 				break;
 			case "copy":
-				window.location.href = '<%=api.url("copy_node")%>' + "?section=" + cbi_id;
+				window.location.href = '<%=api.url("copy_node")%>' + "?section=" + encodeURIComponent(cbi_id);
 				break;
 			case "edit":
-				window.location.href='<%=api.url("node_config")%>/' + cbi_id;
+				window.location.href='<%=api.url("node_config")%>/' + encodeURIComponent(cbi_id);
 				break;
 			case "del":
-				window.location.href = '<%=api.url("delete_select_nodes")%>' + "?redirect=1&ids=" + cbi_id;
+				window.location.href = '<%=api.url("delete_select_nodes")%>' + "?redirect=1&ids=" + encodeURIComponent(cbi_id);
 				break;
 			case "row_top":
 				let btn = a.btn;
-				let group = a.group;
 				const row = btn.closest("tr");
 				if (!row) return;
+				const table = row.closest("table");
+				if (!table) return;
+				// The group is derived from the table id instead of being passed through an inline handler
+				let group = table.id.replace("cbi-<%=appname%>-nodes-", "").replace(/-table$/, "");
 				const parent = row.parentNode;
 				let firstDataRow = parent.querySelector("tr:not(.cbi-section-table-titles)");
 				if (firstDataRow && firstDataRow !== row) {
@@ -1005,7 +1019,7 @@ table td, .table .td {
 	// List drag and rearrange
 	function initSortableForTable(table) {
 		if (!table) return null;
-		let group = table.id.replace("cbi-<%=appname%>-nodes-", "").replace("-table", "")
+		let group = table.id.replace("cbi-<%=appname%>-nodes-", "").replace(/-table$/, "")
 		var root = table.querySelector('tbody') || table;
 		if (root._sortable_initialized) return root._sortable_instance;
 		root._sortable_initialized = true;
@@ -1056,8 +1070,11 @@ table td, .table .td {
 		}
 	}
 
+	// Escape a value for use in HTML text and in quoted attribute values.
+	// NOTE: this is NOT sufficient for values placed inside inline JS handlers (onclick="...");
+	// never put untrusted data there.
 	function escape_html(s) {
-		return s.replace(/[&<>"']/g, c => ({
+		return String(s ?? "").replace(/[&<>"']/g, c => ({
 			"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
 		}[c]));
 	}
@@ -1170,6 +1187,35 @@ table td, .table .td {
 			: null;
 	}
 
+	// Try to decode the whole string as base64 / base64url (padding optional).
+	// Returns the decoded text only if it is valid UTF-8 and looks like node links (contains "://"),
+	// otherwise null.
+	function tryWholeBase64Decode(str) {
+		const stripped = str.replace(/\s+/g, "");
+		if (stripped.length === 0) return null;
+		if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(stripped)) return null;
+		try {
+			let normalized = stripped.replace(/-/g, '+').replace(/_/g, '/');
+			const padLength = 4 - (normalized.length % 4);
+			if (padLength !== 4) {
+				normalized += '='.repeat(padLength);
+			}
+			const binaryStr = atob(normalized);
+			const bytes = Uint8Array.from(binaryStr, c => c.charCodeAt(0));
+			const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+			return /:\/\//.test(decoded) ? decoded : null;
+		} catch (e) {
+			return null;
+		}
+	}
+
+	// A line that already is "scheme://..." is kept as is; otherwise try to decode it as base64.
+	function decodeLineIfBase64(line) {
+		if (/:\/\//.test(line)) return line;
+		const decoded = tryWholeBase64Decode(line);
+		return decoded !== null ? decoded : line;
+	}
+
 	const add_link_div = {
 		open() {
 			document.body.classList.add('modal-open');
@@ -1189,34 +1235,69 @@ table td, .table .td {
 			document.body.classList.remove('modal-open');
 		},
 		add_node() {
-			let nodes_link = document.getElementById("nodes_link").value;
+			const raw = document.getElementById("nodes_link").value
+				.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").trim();
 			const group = (document.querySelector('#addlink_group_custom input[type="hidden"]')?.value || "default");
-			nodes_link = nodes_link.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").replace(/<[^>]*>/g, '').trim();
-			if (nodes_link != "") {
-				nodes_link = decodeIfBase64(nodes_link);
-				let s = nodes_link.split('://');
-				if (s.length > 1) {
-					this.close();
-					this.ajax_add_node(nodes_link, group);
-				} else {
-					alert("<%:Please enter the correct link.%>");
-				}
-			} else {
+			if (raw === "") {
 				document.getElementById("nodes_link").focus();
+				return;
 			}
+
+			// Decode first, validate afterwards, so that encoded content cannot bypass the checks.
+			const wholeDecoded = tryWholeBase64Decode(raw);
+			const contentLines = wholeDecoded !== null
+				? wholeDecoded.split("\n")
+				: raw.split("\n").map(line => decodeLineIfBase64(line.trim()));
+
+			const validNodes = [];
+			const invalidLines = [];
+			for (let line of contentLines) {
+				line = line.trim();
+				if (line === "") continue;
+				const idx = line.indexOf("://");
+				// Content after the first "://" (empty when there is no "://" at all)
+				const rest = idx === -1 ? "" : line.slice(idx + 3);
+				// Reject lines containing angle brackets, without scheme, or without content after "://"
+				if (/[<>]/.test(line) || idx <= 0 || rest === "") {
+					invalidLines.push(line);
+					continue;
+				}
+				validNodes.push(line);
+			}
+
+			if (validNodes.length === 0) {
+				alert("<%:Please enter the correct link.%>");
+				document.getElementById("nodes_link").focus();
+				return;
+			}
+			if (invalidLines.length > 0) {
+				alert("<%:The following lines failed to parse or contained invalid characters:%>\n\n" + invalidLines.join("\n"));
+			}
+			this.close();
+			this.ajax_add_node(validNodes.join("\n"), group);
 		},
 		ajax_add_node(link, group) {
 			const dom = document.getElementById('modal-mask');
 			dom.style.display = 'block';
 			dom.innerHTML = '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;"><%:Processing, please wait…%></div>';
 			
-			const chunkSize = 1000;  // Fragmented sending to overcome uhttpd's limitations, with each fragment containing 1000 characters.
-			const totalChunks = Math.ceil(link.length / chunkSize);
+			// Fragmented sending to overcome uhttpd's limitations, with each fragment containing about 1000 characters.
+			// A fragment never ends in the middle of a surrogate pair (emoji), otherwise it would be corrupted when encoded.
+			const chunkSize = 1000;
+			const chunks = [];
+			for (let i = 0; i < link.length; ) {
+				let end = Math.min(i + chunkSize, link.length);
+				const c = link.charCodeAt(end - 1);
+				if (end < link.length && c >= 0xD800 && c <= 0xDBFF) end++;
+				chunks.push(link.substring(i, end));
+				i = end;
+			}
+			const totalChunks = chunks.length;
 			let currentChunk = 0;
 
 			function sendNextChunk() {
 				if (currentChunk < totalChunks) {
-					const chunk = link.substring(currentChunk * chunkSize, (currentChunk + 1) * chunkSize);
+					const chunk = chunks[currentChunk];
 					const xhr = new XMLHttpRequest();
 					xhr.open('POST', '<%=api.url("link_add_node")%>', true);
 					xhr.onload = function () {
@@ -1254,7 +1335,7 @@ table td, .table .td {
 	const reassign_group_div = {
 		open() {
 			const ids = [];
-			const visibleContainer = document.querySelector('#cbi-passwall2-nodes > .cbi-tabcontainer[style*="display:block"], #cbi-passwall2-nodes > .cbi-tabcontainer[style*="display: block"]');
+			const visibleContainer = document.querySelector('#cbi-<%=appname%>-nodes > .cbi-tabcontainer[style*="display:block"], #cbi-<%=appname%>-nodes > .cbi-tabcontainer[style*="display: block"]');
 			if (!visibleContainer) return;
 			const doms = visibleContainer.getElementsByClassName("nodes_select");
 			if (doms && doms.length > 0) {
@@ -1286,7 +1367,7 @@ table td, .table .td {
 		action() {
 			const ids = [];
 			const group = (document.querySelector('#reassign_group_custom input[type="hidden"]')?.value || "default");
-			const visibleContainer = document.querySelector('#cbi-passwall2-nodes > .cbi-tabcontainer[style*="display:block"], #cbi-passwall2-nodes > .cbi-tabcontainer[style*="display: block"]');
+			const visibleContainer = document.querySelector('#cbi-<%=appname%>-nodes > .cbi-tabcontainer[style*="display:block"], #cbi-<%=appname%>-nodes > .cbi-tabcontainer[style*="display: block"]');
 			if (!visibleContainer) return;
 			const doms = visibleContainer.getElementsByClassName("nodes_select");
 			if (doms && doms.length > 0) {
@@ -1328,7 +1409,7 @@ table td, .table .td {
 		set(type, config) {
 			if (confirm('<%:Are you sure set this node?%>') == true){
 				ajax.abortAll();
-				window.location.href = '<%=api.url("set_node")%>?type=' + type + '&config=' + config + '&section=' + this.section;
+				window.location.href = '<%=api.url("set_node")%>?type=' + encodeURIComponent(type) + '&config=' + encodeURIComponent(config) + '&section=' + encodeURIComponent(this.section);
 			}
 		}
 	}
@@ -1385,7 +1466,7 @@ table td, .table .td {
 		<td class="td cbi-value-field pw-urltest">{{url_test}}</td>
 		<td class="td cbi-section-table-cell nowrap cbi-section-actions pw-actions">
 			<div class="node-wrapper">
-				<input class="btn cbi-button cbi-button-edit" type="button" value="<%:To Top%>" onclick="node_action('row_top', null, {btn:this, group:'{{group}}'})" title="<%:To Top%>"/>
+				<input class="btn cbi-button cbi-button-edit" type="button" value="<%:To Top%>" onclick="node_action('row_top', null, {btn:this})" title="<%:To Top%>"/>
 				<input class="btn cbi-button cbi-button-apply" type="button" value="<%:Use%>" id="apply_{{id}}" onclick="set_node_div.open('{{id}}')"/>
 				<input class="btn cbi-button cbi-button-add" type="button" value="<%:Copy%>" onclick="node_action('copy', '{{id}}')"/>
 				<input class="btn cbi-button cbi-button-edit" type="button" value="<%:Edit%>" onclick="node_action('edit', '{{id}}')" alt="<%:Edit%>" title="<%:Edit%>">
@@ -1427,11 +1508,68 @@ table td, .table .td {
 	if (window.pw2NodeSort)
 		pw2NodeSort.init();
 
+	// Align the filter bar (created by node_list_sort.js) with the left edge of the first tab.
+	// The offset is measured instead of hard-coded, because it depends on the theme.
+	function pw_align_filter() {
+		const menu = document.querySelector("#node_list .cbi-tabmenu");
+		const tab = menu ? menu.querySelector("li") : null;
+		if (!tab) return;
+		const targetLeft = tab.getBoundingClientRect().left;
+		const menuBottom = menu.getBoundingClientRect().bottom;
+		document.querySelectorAll("#node_list .pw-filter").forEach(function(f) {
+			if (f.getClientRects().length === 0) return; // filter of a hidden tab
+
+			// Horizontal: line up with the first tab.
+			// Padding does not move the left border edge, so the current padding does not disturb the measurement.
+			const pad = Math.max(0, Math.round(targetLeft - f.getBoundingClientRect().left)) + "px";
+			if (f.style.paddingLeft !== pad)
+				f.style.paddingLeft = pad;
+
+			// Vertical: keep the bar as close to the tab bar as its own default margin (0.4em).
+			// Some themes add a large gap below the tabs (e.g. bootstrap: 18px margin + 9px fieldset padding);
+			// measure it and cancel the surplus with the top margin. A theme whose gap already matches is left alone.
+			const style = window.getComputedStyle(f);
+			const want = (parseFloat(style.fontSize) || 14) * 0.4;
+			const gap = f.getBoundingClientRect().top - menuBottom;
+			if (Math.abs(gap - want) > 3) {
+				const cur = parseFloat(style.marginTop) || 0;
+				f.style.marginTop = (cur + want - gap) + "px";
+			}
+		});
+	}
+
+	// Also re-align after every tab switch, including switches made by LuCI itself.
+	if (typeof cbi_t_switch === "function") {
+		const ori_switch_for_filter = cbi_t_switch;
+		cbi_t_switch = function(section, tab) {
+			const ret = ori_switch_for_filter(section, tab);
+			pw_align_filter();
+			return ret;
+		};
+	}
+
+	// Re-align whenever the list is (re)built or the filter bar is re-rendered, and on resize.
+	(function() {
+		const root = document.getElementById("node_list");
+		if (!root || typeof MutationObserver === "undefined") return;
+		let queued = false;
+		new MutationObserver(function() {
+			if (queued) return;
+			queued = true;
+			requestAnimationFrame(function() {
+				queued = false;
+				pw_align_filter();
+			});
+		}).observe(root, { childList: true, subtree: true });
+		window.addEventListener("resize", pw_align_filter);
+	})();
+
 	function get_remarks_name(o) {
 		let str = "";
 		let remarks = o["remarks"] || "";
 		let type = o["type"] || "";
-		str += "<input type='hidden' id='cbid.<%=appname%>." + o[".name"] + ".type' value='" + type + "'/>";
+		// Everything that comes from the node data is escaped here, the result is inserted as HTML.
+		str += "<input type='hidden' id='cbid.<%=appname%>." + escape_html(o[".name"]) + ".type' value='" + escape_html(type) + "'/>";
 		if (type == "sing-box" || type == "Xray") {
 			let protocol = o["protocol"]
 			let p = "";
@@ -1479,10 +1617,11 @@ table td, .table .td {
 		} else {
 			port_s = o["hysteria_hop"] || o["hysteria2_hop"];
 		}
+		const label = escape_html(type);
 		if ((o.type === "Hysteria2" || o.protocol === 'hysteria2') && o.hysteria2_realms) {
-			str += type + " Realm：" + remarks;
+			str += label + " Realm：" + escape_html(remarks);
 		} else {
-			str += type + "：" + remarks;
+			str += label + "：" + escape_html(remarks);
 		}
 		return str;
 	}
@@ -1517,7 +1656,7 @@ table td, .table .td {
 					//Node List
 					var new_nodes_table_dom = nodes_table_template.cloneNode(true);
 					var _html = new_nodes_table_dom.innerHTML;
-					_html = _html.split("{{group}}").join(group);
+					_html = _html.split("{{group}}").join(escape_html(group));
 					var node_tr_html = "";
 					for (var i = 0; i < group_nodes[group].length; i++) {
 						let o = group_nodes[group][i]
@@ -1539,23 +1678,24 @@ table td, .table .td {
 						} else {
 							innerHTML = innerHTML.split("{{url_test}}").join('<span class="ping_value"><a href="javascript:void(0)" style="color:inherit">---</a></span>');
 						}
-						innerHTML = innerHTML.split("{{id}}").join(o[".name"]);
-						innerHTML = innerHTML.split("{{group}}").join(o["group"] || "");
+						// {{id}} is a UCI section name (letters, digits and underscore only), escaped anyway
+						innerHTML = innerHTML.split("{{id}}").join(escape_html(o[".name"]));
 						let node_remarks = get_remarks_name(o);
 						if (show_node_info == "1") {
 							let _port = o["port"] || o["hysteria_hop"] || o["hysteria2_hop"];
-							if (_port) _port = _port.replace(/:/g, '-');
+							if (_port) _port = String(_port).replace(/:/g, '-');
 							if (o["address"] && _port) {
 								let _address = o["address"]
 								if (o["full_address"])
 									_address = o["full_address"]
-								node_remarks += "<br>" + _address + ":" + _port
+								node_remarks += "<br>" + escape_html(_address + ":" + _port)
 							}
 						}
+						// node_remarks is already escaped by get_remarks_name() and above
 						innerHTML = innerHTML.split("{{remarks}}").join(node_remarks);
-						innerHTML = innerHTML.split("{{remarks_val}}").join(o["remarks"]);
-						innerHTML = innerHTML.split("{{address_val}}").join(o["address"] || "");
-						innerHTML = innerHTML.split("{{port_val}}").join(o["port"] || "");
+						innerHTML = innerHTML.split("{{remarks_val}}").join(escape_html(o["remarks"]));
+						innerHTML = innerHTML.split("{{address_val}}").join(escape_html(o["address"]));
+						innerHTML = innerHTML.split("{{port_val}}").join(escape_html(o["port"]));
 
 						node_tr_html += innerHTML
 					}
@@ -1568,12 +1708,15 @@ table td, .table .td {
 					group_name = "<%:default%>"
 				}
 
+				// group is escaped for attributes; the tab switch is bound with an event listener below
+				// instead of an inline onclick, because HTML escaping does not protect inline JS strings.
+				const g = escape_html(group);
 				tab_ul_li_html +=
-					'<li group_name="' + group + '" id="tab.<%=appname%>.nodes.' + group + '" class="cbi-tab">' +
-						'<a onclick="this.blur(); return cbi_t_switch(\'<%=appname%>.nodes\', \'' + group + '\')" href="<%=REQUEST_URI%>?tab.<%=appname%>.nodes=' + group + '">' + escape_html(group_name) + " | " + "<font style='color: red'>" + group_nodes[group].length + '</font></a>' +
+					'<li group_name="' + g + '" id="tab.<%=appname%>.nodes.' + g + '" class="cbi-tab">' +
+						'<a data-group="' + g + '" href="<%=REQUEST_URI%>?tab.<%=appname%>.nodes=' + encodeURIComponent(group) + '">' + escape_html(group_name) + " | " + "<font style='color: red'>" + group_nodes[group].length + '</font></a>' +
 					'</li>'
 				tab_content_html +=
-					'<div class="cbi-tabcontainer" id="container.<%=appname%>.nodes.' + group + '" style="display: none;">' +
+					'<div class="cbi-tabcontainer" id="container.<%=appname%>.nodes.' + g + '" style="display: none;">' +
 					'' + table_html +
 					'</div>'
 			}
@@ -1593,6 +1736,14 @@ table td, .table .td {
 			}
 
 			document.getElementById("node_list").innerHTML = addTabDOM(tab_ul_li_html, tab_content_html);
+
+			document.querySelectorAll("#node_list .cbi-tabmenu a[data-group]").forEach(function(a) {
+				a.addEventListener("click", function(e) {
+					e.preventDefault();
+					a.blur();
+					cbi_t_switch("<%=appname%>.nodes", a.dataset.group);
+				});
+			});
 
 			for (let group in group_nodes) {
 				cbi_t_add("<%=appname%>.nodes", group)
@@ -1629,6 +1780,7 @@ table td, .table .td {
 			pingAllNodes();
 			if (window.pw2NodeSort)
 				pw2NodeSort.enhanceAll();
+			pw_align_filter();
 		});
 	}
 
@@ -1796,7 +1948,7 @@ table td, .table .td {
 			<%- if #shunt_rule_list > 0 then
 				for i, v in ipairs(shunt_rule_list) do
 			-%>
-				<input class="btn cbi-button" type="button" onclick="set_node_div.set('<%=node%>', '<%=v[".name"]%>')" value="<%=v.remarks%>" />
+				<input class="btn cbi-button" type="button" onclick="set_node_div.set('<%=node%>', '<%=v[".name"]%>')" value="<%=pcdata(v.remarks)%>" />
 			<%-
 				end
 			-%>
