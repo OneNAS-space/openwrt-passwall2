@@ -1,4 +1,4 @@
-From 1697b171faef6f3045ad462610e0d1f3fe754c63 Mon Sep 17 00:00:00 2001
+From a1e2639ff78098f6f28efdc9b7ffc8bcdeb89b24 Mon Sep 17 00:00:00 2001
 From: Jackie264 <jackie.han@gmail.com>
 Date: Fri, 14 Aug 2026 07:17:09 +0800
 Subject: [PATCH] Potential fix for code scanning alert no. 11: DOM text
@@ -10,10 +10,10 @@ Co-authored-by: Copilot Autofix powered by AI <62310815+github-advanced-security
  1 file changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/view/passwall2/global/footer.htm b/luci-app-passwall2/luasrc/view/passwall2/global/footer.htm
-index a279f3b7..2830cae4 100644
+index 0696f3aa..f6905cee 100644
 --- a/luci-app-passwall2/luasrc/view/passwall2/global/footer.htm
 +++ b/luci-app-passwall2/luasrc/view/passwall2/global/footer.htm
-@@ -58,9 +58,13 @@
+@@ -52,9 +52,13 @@ local sid = "@global[0]"
  		if (!node_select_value || node_select_value.indexOf("_default") === 0 || node_select_value.indexOf("_direct") === 0 || node_select_value.indexOf("_blackhole") === 0) {
  			return;
  		}
@@ -29,3 +29,5 @@ index a279f3b7..2830cae4 100644
  		}
  		location.href = to_url;
  	}
+-- 
+2.43.0
