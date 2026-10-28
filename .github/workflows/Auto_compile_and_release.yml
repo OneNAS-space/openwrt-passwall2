@@ -182,6 +182,35 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: 🧹 Keep only the latest 10 releases
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KEEP: "10"
+          CURRENT_TAG: ${{ needs.job_check.outputs.passwall2_version }}
+        run: |
+          set -euo pipefail
+
+          # Newest first (by creation time); everything after the first $KEEP entries is deleted.
+          # The release that was just published is never deleted.
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName,createdAt \
+            --jq "sort_by(.createdAt) | reverse | .[$KEEP:][].tagName" > old_tags.txt
+
+          if [ ! -s old_tags.txt ]; then
+            echo "Nothing to clean up (<= $KEEP releases)."
+            exit 0
+          fi
+
+          while read -r tag; do
+            [ -z "$tag" ] && continue
+            if [ "$tag" = "$CURRENT_TAG" ]; then
+              echo "Skip current release $tag"
+              continue
+            fi
+            echo "Deleting old release and tag: $tag"
+            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          done < old_tags.txt
+
       - name: 🔑 Checkout custom-packages repo
         uses: actions/checkout@v7
         with:
