@@ -1,4 +1,4 @@
-From 87164b35c97a42158ac19a1ce28caed26c069fe7 Mon Sep 17 00:00:00 2001
+From 354fca91cb7de3f772c2068e745d24d40b4c782d Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
 Date: Mon, 26 Oct 2026 14:25:51 +0800
 Subject: [PATCH] Refactor label text handling to use CSS ellipsis
@@ -9,7 +9,7 @@ Removed custom ellipsis handling for label text. Updated to rely on CSS for text
  1 file changed, 12 insertions(+), 55 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm b/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
-index 2a066287b..d6568ad89 100644
+index 2a066287..d6568ad8 100644
 --- a/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
 +++ b/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
 @@ -90,11 +90,17 @@
@@ -120,3 +120,5 @@ index 2a066287b..d6568ad89 100644
  				});
  				lv_adaptiveTicking = false;
  			});
+-- 
+2.43.0
