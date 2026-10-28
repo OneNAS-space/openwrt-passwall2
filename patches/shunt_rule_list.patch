@@ -1,4 +1,4 @@
-From 3c20efe4be497e711f876875b53f930eb04d8612 Mon Sep 17 00:00:00 2001
+From 32928010f93733a9377839532bf227761cb938c0 Mon Sep 17 00:00:00 2001
 From: Jackie264 <jackie.han@gmail.com>
 Date: Sun, 9 Aug 2026 16:33:03 +0800
 Subject: [PATCH] Replace fieldset with div in shunt_rule_list.htm
@@ -8,10 +8,10 @@ Subject: [PATCH] Replace fieldset with div in shunt_rule_list.htm
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm b/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
-index 6e5a6559..13302e5b 100644
+index bfbbdf1a..e2c88684 100644
 --- a/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
 +++ b/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
-@@ -326,7 +326,7 @@
+@@ -286,7 +286,7 @@ table td, .table .td {
  
  
  <script type="text/template" id="shunt_rules-table-template">
@@ -20,16 +20,16 @@ index 6e5a6559..13302e5b 100644
  		<table class="table cbi-section-table" id="cbi-<%=appname%>-shunt_rules-{{group}}-table" style="">
  			<tr class="tr cbi-section-table-titles anonymous">
  				<th class="th cbi-section-table-cell" style="width:30%">ID</th>
-@@ -340,7 +340,7 @@
+@@ -300,7 +300,7 @@ table td, .table .td {
+ 			<input type="text" id="add_name_{{group}}">
  			<input class="cbi-button cbi-button-add" type="button" value="<%:Add%>" onclick="toPage('add')">
- 			<input class="cbi-button cbi-button-apply" style="display: none" type="button" id="save_order_btn_{{group}}" value="<%:Save Order%>" onclick="save_current_page_order('{{group}}')">
  		</div>
 -	</fieldset>
 +	</div>
  </script>
  
  <script type="text/template" id="shunt_rule-tr-template">
-@@ -428,7 +428,7 @@ <h3>Sing-Box/Xray <%:Shunt Rule%></h3>
+@@ -392,7 +392,7 @@ table td, .table .td {
  			
  			function addTabDOM(li, content) {
  				let tab_ul_html = '<ul class="cbi-tabmenu">';
@@ -38,7 +38,7 @@ index 6e5a6559..13302e5b 100644
  				if (li) {
  					tab_ul_html += li;
  				}
-@@ -436,7 +436,7 @@ <h3>Sing-Box/Xray <%:Shunt Rule%></h3>
+@@ -400,7 +400,7 @@ table td, .table .td {
  					tab_content_html += content;
  				}
  				tab_ul_html += '</ul>';
@@ -47,3 +47,5 @@ index 6e5a6559..13302e5b 100644
  				return tab_ul_html + tab_content_html;
  			}
  
+-- 
+2.43.0
