@@ -1,10 +1,11 @@
-name: Sanitize Makefile
+name: Apply patches and sanitize
 
 on:
   workflow_dispatch:
   push:
     paths:
       - '**/Makefile'
+      - 'patches/**'
   pull_request:
     paths:
       - '**/Makefile'
@@ -76,50 +77,44 @@ jobs:
               print("Successfully cleaned LUCI_DEPENDS")
           EOF
 
-      - name: Apply Custom Patches Pipeline
+      - name: Apply custom patches (patches/*.patch, in filename order)
         run: |
           set -e
+          export LC_ALL=C
+          shopt -s nullglob
 
-          PATCH_LIST="
-            footer.patch
-            helper_dnsmasq_lua.patch
-            node_list.patch
-            nodes_listvalue_com.patch
-            nodes_value_com.patch
-            rule_lua.patch
-            shunt_rule_list.patch
-            uci-defaults.patch
-          "
+          # Every patches/*.patch is applied, sorted by filename (C locale).
+          # If one patch must come before another, prefix the names: 01-xxx.patch, 02-xxx.patch ...
+          patch_files=(patches/*.patch)
+          if [ ${#patch_files[@]} -eq 0 ]; then
+            echo "❌ Critical Error: no patches/*.patch found!"
+            exit 1
+          fi
 
-          for patch_file in $PATCH_LIST; do
+          for patch_file in "${patch_files[@]}"; do
             echo ""
-            if [ -f "patches/$patch_file" ]; then
-              echo "🔎 Detecting the patch status: patches/$patch_file ..."
-              
-              # 1. Core Intelligent Detection: Try the "Virtual Reverse Application" patch
-              # If 0 is returned, it means that the patch content already exists in the source code (the upstream has been merged)
-              if patch -p1 --dry-run -R --silent < "patches/$patch_file" >/dev/null 2>&1; then
-                echo "⏭️ [Skip] The upstream source code already contains the content of this patch, and there is no need to repeat the application."
-                continue
-              fi
-              
-              # 2. If there is no upstream, test whether the current patch can be "cleanly applied positively"
-              if patch -p1 --dry-run --silent < "patches/$patch_file" >/dev/null 2>&1; then
-                echo "🩹 Patch is being applied: patches/$patch_file ..."
-                patch --batch -p1 < "patches/$patch_file"
-                echo "✅ $patch_file Successful application!"
-              else
-                # 3. If it has not been applied and the positive application still reports an error, it means that the upstream code has been greatly changed and the patch has been completely invalidated.
-                echo "❌ Key error: $patch_file is neither applied in advance nor can it be integrated cleanly (maybe the upstream structure has changed)."
-                exit 1
-              fi
+            echo "🔎 Detecting the patch status: $patch_file ..."
+
+            # 1. Try a virtual reverse application.
+            # If it succeeds, the patch content already exists in the source (already applied or merged upstream).
+            if patch -p1 --dry-run -R --silent < "$patch_file" >/dev/null 2>&1; then
+              echo "⏭️ [Skip] The source code already contains the content of this patch, no need to apply it again."
+              continue
+            fi
+
+            # 2. Otherwise, test whether the patch can be applied cleanly.
+            if patch -p1 --dry-run --silent < "$patch_file" >/dev/null 2>&1; then
+              echo "🩹 Applying patch: $patch_file ..."
+              patch --batch -p1 < "$patch_file"
+              echo "✅ $(basename "$patch_file") applied successfully!"
             else
-              echo "❌ Critical Error: patches/$patch_file missing!"
+              # 3. Neither applied nor applicable: the upstream code has changed too much and the patch is invalid.
+              echo "❌ Critical Error: $patch_file is neither already applied nor cleanly applicable (upstream structure may have changed)."
               exit 1
             fi
           done
 
-          # 4. Defensive cleaning: forcibly remove any .orig or .rej junk files that may be accidentally generated
+          # 4. Defensive cleaning: remove any .orig or .rej junk files that may have been generated
           find . \( -name "*.orig" -o -name "*.rej" \) -exec rm -f {} +
           git rm -f $(git ls-files '**/*.orig' '**/*.rej') 2>/dev/null || true
 
@@ -132,5 +127,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
-          git commit -m "ci: sanitize LUCI_DEPENDS in Makefile" || echo "No changes to commit"
+          git commit -m "ci: sanitize Makefile and apply custom patches" || echo "No changes to commit"
           git push
