@@ -14,7 +14,7 @@ on:
   repository_dispatch:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Sanitize Makefile"]
+    workflows: ["Apply patches and sanitize"]
     types:
       - completed
 
