@@ -1,0 +1,111 @@
+diff --git a/luci-app-passwall2/luasrc/model/cbi/passwall2/client/global.lua b/luci-app-passwall2/luasrc/model/cbi/passwall2/client/global.lua
+index 8e69f34..9f79e4a 100644
+--- a/luci-app-passwall2/luasrc/model/cbi/passwall2/client/global.lua
++++ b/luci-app-passwall2/luasrc/model/cbi/passwall2/client/global.lua
+@@ -70,6 +70,7 @@ local doh_validate = function(self, value, t)
+ end
+ 
+ m:appendTemplate("/global/status")
++m:appendTemplate("/global/balancer_status")
+ 
+ s = m:section(NamedSection, "@global[0]", "global")
+ 
+@@ -82,6 +83,7 @@ o.rmempty = false
+ ---- Node
+ o = s:taboption("Main", ListValue, "node", "<a style='color: red'>" .. translate("Node") .. "</a>")
+ o.template = m:template_path("/cbi/nodes_listvalue")
++o.description = '<div id="psw2-balancer-current" style="display:none"></div>'
+ o:value("", translate("Close"))
+ o.group = {""}
+ 
+diff --git a/luci-app-passwall2/luasrc/view/passwall2/global/balancer_status.htm b/luci-app-passwall2/luasrc/view/passwall2/global/balancer_status.htm
+new file mode 100644
+index 0000000..7a57443
+--- /dev/null
++++ b/luci-app-passwall2/luasrc/view/passwall2/global/balancer_status.htm
+@@ -0,0 +1,85 @@
++<%
++local map = self.map
++local api = map.api
++local jsonc = require "luci.jsonc"
++-%>
++
++<script type="text/javascript">
++//<![CDATA[
++	// Show, under the Main page "Node" option, which node each balancer of the running node currently picks.
++	(function () {
++		// This template is rendered before the "Node" option, so the container does not exist yet when the script runs: look it up lazily.
++		let box = null;
++		// Labels are the native "Current Node" / "Fallback Node" strings, joined with the same kind of colon as the translated "Current node: %s" (": " or a full-width colon)
++		const sep = (<%=jsonc.stringify(translate("Current node: %s"))%>.match(/[:\uFF1A]\s*/) || [": "])[0];
++		const labelTpl = <%=jsonc.stringify(translate("Current Node"))%> + sep + "%s";
++		const fallbackTpl = <%=jsonc.stringify(translate("Fallback Node"))%> + sep + "%s";
++
++		function render(data) {
++			const rows = [];
++			((data && data.balancers) || []).forEach(function (b) {
++				// random / roundRobin pick per connection, so there is no single "current" node
++				if (b.strategy === "random" || b.strategy === "roundRobin") return;
++				if (!b.current || b.current.length === 0) return;
++				rows.push(b);
++			});
++			// the balancer in use first, the fallback one after it
++			rows.sort(function (x, y) { return (x.fallback ? 1 : 0) - (y.fallback ? 1 : 0); });
++			while (box.firstChild) box.removeChild(box.firstChild);
++			if (rows.length === 0) {
++				box.style.display = "none";
++				return;
++			}
++			rows.forEach(function (b) {
++				const parts = (b.fallback ? fallbackTpl : labelTpl).split("%s");
++				// two columns (label | value) so that the group names line up whatever the label widths are
++				const label = document.createElement("span");
++				label.textContent = parts[0].replace(/\s+$/, "");
++				const value = document.createElement("span");
++				// the group is what the user edits (the nodes inside it come from subscriptions), so the group name links to its config page
++				const name = b.remarks || b.id;
++				if (typeof b.url === "string" && b.url.charAt(0) === "/") {
++					const a = document.createElement("a");
++					a.href = b.url;
++					a.textContent = name;
++					value.appendChild(a);
++				} else {
++					value.appendChild(document.createTextNode(name));
++				}
++				value.appendChild(document.createTextNode(" " + String.fromCharCode(0x2192) + " "));
++				const strong = document.createElement("b");
++				strong.textContent = b.current.map(function (c) { return c.remarks; }).join(", ");
++				value.appendChild(strong);
++				value.appendChild(document.createTextNode(parts.slice(1).join("%s")));
++				box.appendChild(label);
++				box.appendChild(value);
++			});
++			box.style.display = "grid";
++			box.style.gridTemplateColumns = "max-content 1fr";
++			box.style.columnGap = "0.5em";
++		}
++
++		let busy = false;
++		function refresh() {
++			box = box || document.getElementById("psw2-balancer-current");
++			if (!box || busy || document.hidden) return;
++			busy = true;
++			fetch('<%=api.url("balancer_status")%>', { credentials: "same-origin", cache: "no-store" })
++				.then(function (r) { return r.json(); })
++				.then(function (data) { render(data); })
++				.catch(function (e) { console.log("psw2-balancer error:", e); })
++				.then(function () { busy = false; });
++		}
++
++		if (document.readyState === "loading") {
++			document.addEventListener("DOMContentLoaded", refresh);
++		} else {
++			refresh();
++		}
++		// the balancer probes every minute or so, so there is no point in asking more often than this
++		window.setInterval(refresh, 30000);
++		// catch up right away when the tab becomes visible again
++		document.addEventListener("visibilitychange", refresh);
++	})();
++//]]>
++</script>
