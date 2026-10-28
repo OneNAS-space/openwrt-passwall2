@@ -1,4 +1,4 @@
-From 86dcd576cef37b18780e2e0895a9cc27c189f442 Mon Sep 17 00:00:00 2001
+From b407bb62603820c72ca76de1248358b57bb9da18 Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
 Date: Wed, 28 Oct 2026 06:18:15 +0800
 Subject: [PATCH] Refactor node_list.htm for improved UI and functionality
@@ -9,10 +9,10 @@ Updated various elements in the node_list.htm file to improve padding, encoding,
  1 file changed, 194 insertions(+), 42 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm b/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
-index 7426206f..a5692319 100644
+index be073953..2914c95c 100644
 --- a/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
 +++ b/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
-@@ -458,10 +458,21 @@ table td, .table .td {
+@@ -405,10 +405,21 @@ table td, .table .td {
  		max-height: none !important;
  		font: inherit !important;
  		line-height: 1.2 !important;
@@ -35,7 +35,7 @@ index 7426206f..a5692319 100644
  	.pw-filter .pw-filter-count {
  		opacity: 0.8;
  	}
-@@ -545,7 +556,7 @@ table td, .table .td {
+@@ -492,7 +503,7 @@ table td, .table .td {
  					var json = null;
  					if (xhr.getResponseHeader("Content-Type") == "application/json") {
  						try {
@@ -44,7 +44,7 @@ index 7426206f..a5692319 100644
  						}
  						catch(e) {
  							json = null;
-@@ -588,22 +599,25 @@ table td, .table .td {
+@@ -535,22 +546,25 @@ table td, .table .td {
  				const master = document.getElementById("node_list");
  				const dom = master.getElementsByClassName("cbi-tab")[0];
  				const current_group = dom ? (dom.getAttribute("group_name") || "default") : "default";
@@ -75,7 +75,7 @@ index 7426206f..a5692319 100644
  				const parent = row.parentNode;
  				let firstDataRow = parent.querySelector("tr:not(.cbi-section-table-titles)");
  				if (firstDataRow && firstDataRow !== row) {
-@@ -1010,7 +1024,7 @@ table td, .table .td {
+@@ -957,7 +971,7 @@ table td, .table .td {
  	// List drag and rearrange
  	function initSortableForTable(table) {
  		if (!table) return null;
@@ -84,7 +84,7 @@ index 7426206f..a5692319 100644
  		var root = table.querySelector('tbody') || table;
  		if (root._sortable_initialized) return root._sortable_instance;
  		root._sortable_initialized = true;
-@@ -1061,8 +1075,11 @@ table td, .table .td {
+@@ -1008,8 +1022,11 @@ table td, .table .td {
  		}
  	}
  
@@ -97,7 +97,7 @@ index 7426206f..a5692319 100644
  			"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
  		}[c]));
  	}
-@@ -1175,6 +1192,35 @@ table td, .table .td {
+@@ -1128,6 +1145,35 @@ table td, .table .td {
  			: null;
  	}
  
@@ -133,14 +133,14 @@ index 7426206f..a5692319 100644
  	const add_link_div = {
  		open() {
  			document.body.classList.add('modal-open');
-@@ -1194,34 +1240,69 @@ table td, .table .td {
+@@ -1145,34 +1191,69 @@ table td, .table .td {
  			document.body.classList.remove('modal-open');
  		},
  		add_node() {
 -			let nodes_link = document.getElementById("nodes_link").value;
 +			const raw = document.getElementById("nodes_link").value
 +				.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").trim();
- 			const group = (document.querySelector('#addlink_group_custom input[type="hidden"]')?.value || "default");
+ 			const group = get_group_value("addlink_group_custom");
 -			nodes_link = nodes_link.replace(/\t/g, "").replace(/\r\n|\r/g, "\n").replace(/<[^>]*>/g, '').trim();
 -			if (nodes_link != "") {
 -				nodes_link = decodeIfBase64(nodes_link);
@@ -182,10 +182,10 @@ index 7426206f..a5692319 100644
 +				alert("<%:Please enter the correct link.%>");
  				document.getElementById("nodes_link").focus();
 +				return;
-+			}
+ 			}
 +			if (invalidLines.length > 0) {
 +				alert("<%:The following lines failed to parse or contained invalid characters:%>\n\n" + invalidLines.join("\n"));
- 			}
++			}
 +			this.close();
 +			this.ajax_add_node(validNodes.join("\n"), group);
  		},
@@ -217,7 +217,7 @@ index 7426206f..a5692319 100644
  					const xhr = new XMLHttpRequest();
  					xhr.open('POST', '<%=api.url("link_add_node")%>', true);
  					xhr.onload = function () {
-@@ -1259,7 +1340,7 @@ table td, .table .td {
+@@ -1210,7 +1291,7 @@ table td, .table .td {
  	const reassign_group_div = {
  		open() {
  			const ids = [];
@@ -226,16 +226,16 @@ index 7426206f..a5692319 100644
  			if (!visibleContainer) return;
  			const doms = visibleContainer.getElementsByClassName("nodes_select");
  			if (doms && doms.length > 0) {
-@@ -1291,7 +1372,7 @@ table td, .table .td {
+@@ -1240,7 +1321,7 @@ table td, .table .td {
  		action() {
  			const ids = [];
- 			const group = (document.querySelector('#reassign_group_custom input[type="hidden"]')?.value || "default");
+ 			const group = get_group_value("reassign_group_custom");
 -			const visibleContainer = document.querySelector('#cbi-passwall2-nodes > .cbi-tabcontainer[style*="display:block"], #cbi-passwall2-nodes > .cbi-tabcontainer[style*="display: block"]');
 +			const visibleContainer = document.querySelector('#cbi-<%=appname%>-nodes > .cbi-tabcontainer[style*="display:block"], #cbi-<%=appname%>-nodes > .cbi-tabcontainer[style*="display: block"]');
  			if (!visibleContainer) return;
  			const doms = visibleContainer.getElementsByClassName("nodes_select");
  			if (doms && doms.length > 0) {
-@@ -1333,7 +1414,7 @@ table td, .table .td {
+@@ -1282,7 +1363,7 @@ table td, .table .td {
  		set(type, config) {
  			if (confirm('<%:Are you sure set this node?%>') == true){
  				ajax.abortAll();
@@ -244,7 +244,7 @@ index 7426206f..a5692319 100644
  			}
  		}
  	}
-@@ -1390,7 +1471,7 @@ table td, .table .td {
+@@ -1339,7 +1420,7 @@ table td, .table .td {
  		<td class="td cbi-value-field pw-urltest">{{url_test}}</td>
  		<td class="td cbi-section-table-cell nowrap cbi-section-actions pw-actions">
  			<div class="node-wrapper">
@@ -253,7 +253,7 @@ index 7426206f..a5692319 100644
  				<input class="btn cbi-button cbi-button-apply" type="button" value="<%:Use%>" id="apply_{{id}}" onclick="set_node_div.open('{{id}}')"/>
  				<input class="btn cbi-button cbi-button-add" type="button" value="<%:Copy%>" onclick="node_action('copy', '{{id}}')"/>
  				<input class="btn cbi-button cbi-button-edit" type="button" value="<%:Edit%>" onclick="node_action('edit', '{{id}}')" alt="<%:Edit%>" title="<%:Edit%>">
-@@ -1432,11 +1513,68 @@ table td, .table .td {
+@@ -1381,11 +1462,68 @@ table td, .table .td {
  	if (window.pw2NodeSort)
  		pw2NodeSort.init();
  
@@ -323,7 +323,7 @@ index 7426206f..a5692319 100644
  		if (type == "sing-box" || type == "Xray") {
  			let protocol = o["protocol"]
  			let p = "";
-@@ -1484,10 +1622,11 @@ table td, .table .td {
+@@ -1433,10 +1571,11 @@ table td, .table .td {
  		} else {
  			port_s = o["hysteria_hop"] || o["hysteria2_hop"];
  		}
@@ -337,7 +337,7 @@ index 7426206f..a5692319 100644
  		}
  		return str;
  	}
-@@ -1522,7 +1661,7 @@ table td, .table .td {
+@@ -1471,7 +1610,7 @@ table td, .table .td {
  					//Node List
  					var new_nodes_table_dom = nodes_table_template.cloneNode(true);
  					var _html = new_nodes_table_dom.innerHTML;
@@ -346,7 +346,7 @@ index 7426206f..a5692319 100644
  					var node_tr_html = "";
  					for (var i = 0; i < group_nodes[group].length; i++) {
  						let o = group_nodes[group][i]
-@@ -1544,23 +1683,24 @@ table td, .table .td {
+@@ -1493,23 +1632,24 @@ table td, .table .td {
  						} else {
  							innerHTML = innerHTML.split("{{url_test}}").join('<span class="ping_value"><a href="javascript:void(0)" style="color:inherit">---</a></span>');
  						}
@@ -378,7 +378,7 @@ index 7426206f..a5692319 100644
  
  						node_tr_html += innerHTML
  					}
-@@ -1573,12 +1713,15 @@ table td, .table .td {
+@@ -1522,12 +1662,15 @@ table td, .table .td {
  					group_name = "<%:default%>"
  				}
  
@@ -397,7 +397,7 @@ index 7426206f..a5692319 100644
  					'' + table_html +
  					'</div>'
  			}
-@@ -1599,6 +1742,14 @@ table td, .table .td {
+@@ -1548,6 +1691,14 @@ table td, .table .td {
  
  			document.getElementById("node_list").innerHTML = addTabDOM(tab_ul_li_html, tab_content_html);
  
@@ -412,7 +412,7 @@ index 7426206f..a5692319 100644
  			for (let group in group_nodes) {
  				cbi_t_add("<%=appname%>.nodes", group)
  			}
-@@ -1634,6 +1785,7 @@ table td, .table .td {
+@@ -1583,6 +1734,7 @@ table td, .table .td {
  			pingAllNodes();
  			if (window.pw2NodeSort)
  				pw2NodeSort.enhanceAll();
@@ -420,7 +420,7 @@ index 7426206f..a5692319 100644
  		});
  	}
  
-@@ -1801,7 +1953,7 @@ table td, .table .td {
+@@ -1730,7 +1882,7 @@ table td, .table .td {
  			<%- if #shunt_rule_list > 0 then
  				for i, v in ipairs(shunt_rule_list) do
  			-%>
