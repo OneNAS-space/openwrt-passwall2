@@ -76,7 +76,6 @@ function index()
 	entry({"admin", "services", appname, "index_status"}, call("index_status")).leaf = true
 	entry({"admin", "services", appname, "haproxy_status"}, call("haproxy_status")).leaf = true
 	entry({"admin", "services", appname, "socks_status"}, call("socks_status")).leaf = true
-	entry({"admin", "services", appname, "balancer_status"}, call("balancer_status")).leaf = true
 	entry({"admin", "services", appname, "connect_status"}, call("connect_status")).leaf = true
 	entry({"admin", "services", appname, "ping_node"}, call("ping_node")).leaf = true
 	entry({"admin", "services", appname, "urltest_node"}, call("urltest_node")).leaf = true
@@ -303,64 +302,6 @@ function socks_status()
 	if tonumber(use_http) > 0 then
 		e.use_http = 1
 		e.http_status = luci.sys.call(string.format("/bin/busybox top -bn1 | grep -v -E 'grep|acl/|acl_' | grep '%s/bin/' | grep '%s' | grep -E '\\+http|_http' > /dev/null", appname, id)) == 0
-	end
-	http_write_json(e)
-end
-
--- Which node does each balancer of the running main node currently pick (needs xray with RoutingService, see util_xray.lua)
-function balancer_status()
-	local e = { running = false, balancers = {} }
-	local info = jsonParse(fs.readfile(api.TMP_PATH .. "/balancer_info") or "")
-	local bin = api.get_app_path("xray")
-	if type(info) == "table" and tonumber(info.port) and type(info.balancers) == "table" and bin and fs.access(bin, "x") then
-		local node_ids = {}
-		uci_foreach("nodes", function(n)
-			node_ids[#node_ids + 1] = n[".name"]
-		end)
-		-- a balancer that is the fallback of another balancer
-		local is_fallback = {}
-		for _, b in ipairs(info.balancers) do
-			if type(b.fallback) == "string" then
-				is_fallback[b.fallback] = true
-			end
-		end
-		local function node_of(tag)
-			-- outbound tags are "blc-<node id>" followed by an optional suffix (":<remarks>"): take the longest node id that matches
-			local best
-			for _, id in ipairs(node_ids) do
-				if tag:sub(1, 4 + #id) == "blc-" .. id and (not best or #id > #best) then
-					best = id
-				end
-			end
-			return best
-		end
-		for _, b in ipairs(info.balancers) do
-			if type(b.tag) == "string" then
-				local out = util.exec(string.format("%s api bi -t 2 --server=127.0.0.1:%d %s 2>&1",
-					util.shellquote(bin), tonumber(info.port), util.shellquote(b.tag))) or ""
-				local selects = out:match("Selects:(.*)$")
-				if selects then
-					e.running = true
-					local current = {}
-					for line in selects:gmatch("[^\r\n]+") do
-						-- each line is "<index>   <outbound tag>", the tag itself may contain spaces
-						local tag = line:match("^%s*%d+%s+(.-)%s*$")
-						if tag and tag ~= "" then
-							local id = node_of(tag)
-							current[#current + 1] = { id = id, remarks = id and uci_get(id, "remarks") or tag }
-						end
-					end
-					e.balancers[#e.balancers + 1] = {
-						id = b.id,
-						remarks = uci_get(b.id, "remarks") or b.id,
-						url = api.url("node_config", b.id),
-						fallback = is_fallback[b.id] or false,
-						strategy = b.strategy,
-						current = current
-					}
-				end
-			end
-		end
 	end
 	http_write_json(e)
 end
