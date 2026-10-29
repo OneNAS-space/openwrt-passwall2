@@ -1,33 +1,35 @@
-From 21e317ee6bace08639b8dfd2526e8c3aab1c5470 Mon Sep 17 00:00:00 2001
-From: Jackie264 <jackie.han@gmail.com>
-Date: Thu, 27 Aug 2026 10:07:04 +0800
-Subject: [PATCH] Fix passwall2 configuration by removing bad keys
+From 9ccd6fbfcc8346d263271e1f7ac9cffcc2af7e1e Mon Sep 17 00:00:00 2001
+From: Jackie Han <jackie.han@gmail.com>
+Date: Fri, 30 Oct 2026 06:36:13 +0800
+Subject: [PATCH] Update passwall2 initialization script
 
-Remove 'disable' settings for tcp/udp_no_redir_ports in passwall2 configuration if present.
+Added checks and fixes for passwall2 configuration and permissions.
 ---
- .../root/etc/uci-defaults/luci-app-passwall2           | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ .../root/etc/uci-defaults/luci-app-passwall2       | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
 diff --git a/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2 b/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2
-index fb3efa02..b6fb5fc4 100644
+index 85cd4ee4a..7b4103a88 100644
 --- a/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2
 +++ b/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2
-@@ -32,6 +32,16 @@ uci commit firewall
+@@ -30,7 +30,19 @@ else
+ fi
+ uci commit firewall
  
- [ ! -s "/etc/config/passwall2" ] && cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
- 
-+if [ -s "/etc/config/passwall2" ]; then
-+	_patched=0
-+	for _bad_key in $(uci -q show passwall2 | grep -E "\.(tcp|udp)_no_redir_ports='disable'" | cut -d '=' -f 1); do
-+		uci -q set "$_bad_key="
-+		_patched=1
-+	done
-+	
-+	[ "$_patched" -eq 1 ] && uci commit passwall2
+-[ ! -s "/etc/config/passwall2" ] && cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
++if [ ! -s "/etc/config/passwall2" ]; then
++    cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
 +fi
 +
++_patched=0
++for _bad_key in $(uci -q show passwall2 | grep -E "\.(tcp|udp)_no_redir_ports='disable'" | cut -d '=' -f 1); do
++    uci -q set "$_bad_key="
++    _patched=1
++done
++
++if [ "$_patched" -eq 1 ]; then
++    uci commit passwall2
++fi
+ 
  chmod +x /usr/share/passwall2/*.sh
  
- rm -f /tmp/etc/passwall2_tmp/passwall2_version /tmp/luci-indexcache /tmp/luci-indexcache.*
--- 
-2.43.0
