@@ -70,7 +70,6 @@ local doh_validate = function(self, value, t)
 end
 
 m:appendTemplate("/global/status")
-m:appendTemplate("/global/balancer_status")
 
 s = m:section(NamedSection, "@global[0]", "global")
 
@@ -83,7 +82,6 @@ o.rmempty = false
 ---- Node
 o = s:taboption("Main", ListValue, "node", "<a style='color: red'>" .. translate("Node") .. "</a>")
 o.template = m:template_path("/cbi/nodes_listvalue")
-o.description = '<div id="psw2-balancer-current" style="display:none"></div>'
 o:value("", translate("Close"))
 o.group = {""}
 
