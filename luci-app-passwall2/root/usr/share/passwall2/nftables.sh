@@ -279,6 +279,10 @@ load_acl() {
 	log_i18n 1 "Access Control:"
 	acl_node
 	for sid in $(jsonfilter -s "${ACL_JSON}" -e '$.acl[*].flag'); do
+		[ -f "${TMP_ACL_PATH}/acl_node_${sid}" ] && {
+			log 2 "[${sid}] core failed to start, skip its firewall rules, direct connection is used."
+			continue
+		}
 		eval $(cat "${TMP_ACL_PATH}/${sid}/var")
 
 		[ -z "$(get_cache_var "node_${node}_gen_shunt_list")" ] && [ -n "${node}" ] && gen_shunt_list "${node}" shunt_list4 shunt_list6
