@@ -1,22 +1,134 @@
+# Apply_patches_and_sanitize.yml
+#
+# Keeps luci-app-passwall2 in sync with upstream and rebuilds main:
+#   1. Fetch upstream and store the pristine luci-app-passwall2 directory in the
+#      Official-original branch (the only place unpatched upstream code lives).
+#   2. Rebuild luci-app-passwall2 on main from that branch, clean LUCI_DEPENDS,
+#      apply every patches/*.patch, and commit the result to main.
+# Everything outside luci-app-passwall2 on main (patches/, .github/, README ...)
+# is never touched. Edits to luci-app-passwall2 must therefore go through patches/.
 name: Apply patches and sanitize
 
 on:
+  schedule:
+    - cron: '23 */2 * * *'
   workflow_dispatch:
+    inputs:
+      pkg_release:
+        description: 'Override PKG_RELEASE for this run only (number; leave empty to keep the upstream value)'
+        required: false
+        default: ''
   push:
+    branches:
+      - main
     paths:
-      - '**/Makefile'
       - 'patches/**'
-  pull_request:
-    paths:
-      - '**/Makefile'
+
 permissions:
   contents: write
-  
+
+# A run must never overlap another one: both write to Official-original and main.
+concurrency:
+  group: apply-patches-and-sanitize
+  cancel-in-progress: false
+
+env:
+  TZ: Asia/Shanghai
+  UPSTREAM_REPO: https://github.com/Openwrt-Passwall/openwrt-passwall2.git
+  UPSTREAM_BRANCH: main
+  UPSTREAM_PATH: luci-app-passwall2
+  ORIGINAL_BRANCH: Official-original
+  PATCH_DIR: patches
+
 jobs:
   sanitize:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@main
+      - name: Checkout main
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "$UPSTREAM_REPO" || true
+          echo "🔄 Fetching upstream branch: $UPSTREAM_BRANCH ..."
+          git fetch --no-tags upstream "$UPSTREAM_BRANCH"
+
+      - name: Update Official-original (pristine upstream copy)
+        run: |
+          set -e
+          WT=/tmp/original
+
+          # Newest upstream commit that touched the package directory, so changes
+          # elsewhere in the upstream repository do not cause a sync.
+          NEW_HASH=$(git log -n 1 --format="%H" "upstream/$UPSTREAM_BRANCH" -- "$UPSTREAM_PATH")
+          if [ -z "$NEW_HASH" ]; then
+            echo "❌ Critical Error: no upstream commit found for $UPSTREAM_PATH"
+            exit 1
+          fi
+
+          # Work in a separate worktree so that the main checkout is left alone.
+          rm -rf "$WT"
+          git worktree prune
+          if git ls-remote --exit-code --heads origin "$ORIGINAL_BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$ORIGINAL_BRANCH"
+            git worktree add -B "$ORIGINAL_BRANCH" "$WT" "origin/$ORIGINAL_BRANCH"
+          else
+            echo "Creating a pristine orphan branch..."
+            git worktree add --detach "$WT" HEAD
+            git -C "$WT" checkout --orphan "$ORIGINAL_BRANCH"
+            git -C "$WT" rm -rf -q .
+          fi
+
+          if [ -f "$WT/.upstream_meta" ]; then
+            OLD_HASH=$(sed -n '1p' "$WT/.upstream_meta")
+          else
+            echo "⚠️ .upstream_meta not found! Fallback to path-specific historical commit."
+            OLD_HASH=$(git log -n 1 --skip=5 --format="%H" "upstream/$UPSTREAM_BRANCH" -- "$UPSTREAM_PATH")
+            [ -z "$OLD_HASH" ] && OLD_HASH=$NEW_HASH
+          fi
+
+          CHANGELOG=$(git log --oneline "${OLD_HASH}..${NEW_HASH}" -- "$UPSTREAM_PATH" 2>/dev/null || true)
+          [ -z "$CHANGELOG" ] && CHANGELOG="No upstream changes in this range."
+
+          {
+            echo "SYNC_COMMIT_MSG<<EOF_GHA"
+            echo "Sync from Openwrt-Passwall"
+            echo ""
+            echo "===== Upstream commits ($UPSTREAM_PATH) ====="
+            echo "$CHANGELOG"
+            echo "EOF_GHA"
+          } >> "$GITHUB_ENV"
+          SYNC_COMMIT_MSG=$(printf 'Sync from Openwrt-Passwall\n\n===== Upstream commits (%s) =====\n%s\n' "$UPSTREAM_PATH" "$CHANGELOG")
+
+          cd "$WT"
+          rm -rf "$UPSTREAM_PATH"
+          git checkout "upstream/$UPSTREAM_BRANCH" -- "$UPSTREAM_PATH"
+          echo "$NEW_HASH" > .upstream_meta
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Perfect. No updates detected in upstream."
+          else
+            git commit -q -m "$SYNC_COMMIT_MSG"
+            git push origin "$ORIGINAL_BRANCH"
+          fi
+
+      - name: Rebuild luci-app-passwall2 on main from Official-original
+        run: |
+          set -e
+          echo "🧹 Removing the previously generated $UPSTREAM_PATH ..."
+          git rm -rf -q --ignore-unmatch "$UPSTREAM_PATH"
+          rm -rf "$UPSTREAM_PATH"
+          echo "📥 Overlaying pristine files from $ORIGINAL_BRANCH ..."
+          git checkout "$ORIGINAL_BRANCH" -- "$UPSTREAM_PATH"
 
       - name: Remove unwanted deps from LUCI_DEPENDS
         run: |
@@ -77,17 +189,17 @@ jobs:
               print("Successfully cleaned LUCI_DEPENDS")
           EOF
 
+
       - name: Apply custom patches (patches/*.patch, in filename order)
         run: |
           set -e
           export LC_ALL=C
           shopt -s nullglob
 
-          # Every patches/*.patch is applied, sorted by filename (C locale).
-          # If one patch must come before another, prefix the names: 01-xxx.patch, 02-xxx.patch ...
-          patch_files=(patches/*.patch)
+          # Every $PATCH_DIR/*.patch is applied, sorted by filename (C locale): 001-xxx.patch, 002-xxx.patch ...
+          patch_files=("$PATCH_DIR"/*.patch)
           if [ ${#patch_files[@]} -eq 0 ]; then
-            echo "❌ Critical Error: no patches/*.patch found!"
+            echo "❌ Critical Error: no $PATCH_DIR/*.patch found!"
             exit 1
           fi
 
@@ -96,7 +208,7 @@ jobs:
             echo "🔎 Detecting the patch status: $patch_file ..."
 
             # 1. Try a virtual reverse application.
-            # If it succeeds, the patch content already exists in the source (already applied or merged upstream).
+            # If it succeeds, the patch content already exists in the source (merged upstream).
             if patch -p1 --dry-run -R --silent < "$patch_file" >/dev/null 2>&1; then
               echo "⏭️ [Skip] The source code already contains the content of this patch, no need to apply it again."
               continue
@@ -105,7 +217,7 @@ jobs:
             # 2. Otherwise, test whether the patch can be applied cleanly.
             if patch -p1 --dry-run --silent < "$patch_file" >/dev/null 2>&1; then
               echo "🩹 Applying patch: $patch_file ..."
-              patch --batch -p1 < "$patch_file"
+              patch --batch --no-backup-if-mismatch -p1 < "$patch_file"
               echo "✅ $(basename "$patch_file") applied successfully!"
             else
               # 3. Neither applied nor applicable: the upstream code has changed too much and the patch is invalid.
@@ -115,17 +227,28 @@ jobs:
           done
 
           # 4. Defensive cleaning: remove any .orig or .rej junk files that may have been generated
-          find . \( -name "*.orig" -o -name "*.rej" \) -exec rm -f {} +
-          git rm -f $(git ls-files '**/*.orig' '**/*.rej') 2>/dev/null || true
+          find . -path ./.git -prune -o \( -name "*.orig" -o -name "*.rej" \) -type f -exec rm -f {} +
 
-      - name: Show diff
-        run: git diff --color
-
-      - name: Commit changes
-        if: success()
+      - name: Override PKG_RELEASE (manual run only)
+        if: github.event_name == 'workflow_dispatch' && inputs.pkg_release != ''
+        env:
+          PKG_RELEASE_INPUT: ${{ inputs.pkg_release }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "ci: sanitize Makefile and apply custom patches" || echo "No changes to commit"
-          git push
+          set -e
+          case "$PKG_RELEASE_INPUT" in
+            ''|*[!0-9]*) echo "❌ pkg_release must be a number, got: $PKG_RELEASE_INPUT"; exit 1 ;;
+          esac
+          sed -i "s/^PKG_RELEASE:=.*/PKG_RELEASE:=${PKG_RELEASE_INPUT}/" "$UPSTREAM_PATH/Makefile"
+          grep -n '^PKG_RELEASE:=' "$UPSTREAM_PATH/Makefile"
+
+      - name: Commit and push to main
+        run: |
+          set -e
+          git add -A
+          git diff --cached --stat
+          if git diff --cached --quiet; then
+            echo "No modification changes detected on main branch."
+            exit 0
+          fi
+          git commit -q -m "[Patched] $SYNC_COMMIT_MSG"
+          git push origin HEAD:main
