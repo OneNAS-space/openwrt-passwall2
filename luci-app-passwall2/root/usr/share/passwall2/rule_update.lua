@@ -272,12 +272,24 @@ local function fetch_geofile(geo_name, geo_type, url)
 	return 0
 end
 
+local GH_PROXY = "https://gh-proxy.org/"
+
+-- Retry through gh-proxy when a direct GitHub download fails.
+local function fetch_with_fallback(geo_name, geo_type, url)
+	local ret = fetch_geofile(geo_name, geo_type, url)
+	if ret == 1 and url:match("^https://github%.com/") then
+		log(1, string.format("%s direct download failed, retrying via gh-proxy...", geo_type))
+		ret = fetch_geofile(geo_name, geo_type, GH_PROXY .. url)
+	end
+	return ret
+end
+
 local function fetch_geoip()
-	fetch_geofile("geoip.dat", "geoip", geoip_url)
+	return fetch_with_fallback("geoip.dat", "geoip", geoip_url)
 end
 
 local function fetch_geosite()
-	fetch_geofile("geosite.dat", "geosite", geosite_url)
+	return fetch_with_fallback("geosite.dat", "geosite", geosite_url)
 end
 
 local function remove_tmp_geofile(name)
