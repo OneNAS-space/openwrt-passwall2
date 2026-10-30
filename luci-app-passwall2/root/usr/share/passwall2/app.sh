@@ -855,6 +855,11 @@ acl_node() {
 		if [ "$status" != 0 ]; then
 			log_i18n 2 "[%s] process %s error, skip this transparent proxy!" "${node}" "${config_file}"
 			cat ${_error_log_file} >> ${LOG_FILE}
+			[ ! -e "${LOCK_PATH}/${CONFIG}_geo_healed" ] && grep -q 'common/geodata' "${_error_log_file}" 2>/dev/null && {
+				touch "${LOCK_PATH}/${CONFIG}_geo_healed"
+				log 2 "Geo rule files seem to be corrupted, re-downloading them in the background."
+				{ lua $APP_PATH/rule_update.lua log geoip,geosite >/dev/null 2>&1 & }
+			}
 			unset _error_log_file
 			continue
 		fi
