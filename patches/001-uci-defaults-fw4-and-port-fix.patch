@@ -1,6 +1,6 @@
-From d75f74f398e3233a6562d01887dfb5651cc8903d Mon Sep 17 00:00:00 2001
+From 421d5580ebe0a289e06586ee418b527df1b2f220 Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
-Date: Fri, 30 Oct 2026 21:41:26 +0800
+Date: Fri, 30 Oct 2026 22:18:59 +0800
 Subject: [PATCH] luci-app-passwall2: fix uci-defaults for fw4 and bad port
  values
 
@@ -13,13 +13,22 @@ Subject: [PATCH] luci-app-passwall2: fix uci-defaults for fw4 and bad port
 - Blank tcp_no_redir_ports/udp_no_redir_ports values that are the
   literal string 'disable'.
 ---
- .../root/etc/uci-defaults/luci-app-passwall2  | 23 +++++++++++++++----
- 1 file changed, 19 insertions(+), 4 deletions(-)
+ .../root/etc/uci-defaults/luci-app-passwall2  | 25 +++++++++++++++----
+ 1 file changed, 20 insertions(+), 5 deletions(-)
 
 diff --git a/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2 b/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2
-index 85cd4ee..b6dde7f 100644
+index 85cd4ee..f47e1ab 100644
 --- a/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2
 +++ b/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2
+@@ -2,7 +2,7 @@
+ 
+ if [ -e "/etc/config/ucitrack" ]; then
+ 	uci -q batch <<-EOF
+- 		delete ucitrack.@passwall2[-1]
++		delete ucitrack.@passwall2[-1]
+ 		add ucitrack passwall2
+ 		set ucitrack.@passwall2[-1].init=passwall2
+ 		commit ucitrack
 @@ -22,15 +22,30 @@ uci -q batch <<-EOF
  	commit uhttpd
  EOF
@@ -40,21 +49,20 @@ index 85cd4ee..b6dde7f 100644
  
 -[ ! -s "/etc/config/passwall2" ] && cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
 +if [ ! -s "/etc/config/passwall2" ]; then
-+    cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
++	cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
 +fi
 +
 +_patched=0
 +for _bad_key in $(uci -q show passwall2 | grep -E "\.(tcp|udp)_no_redir_ports='disable'" | cut -d '=' -f 1); do
-+    uci -q set "$_bad_key="
-+    _patched=1
++	uci -q set "$_bad_key="
++	_patched=1
 +done
 +
 +if [ "$_patched" -eq 1 ]; then
-+    uci commit passwall2
++	uci commit passwall2
 +fi
  
  chmod +x /usr/share/passwall2/*.sh
  
 -- 
 2.43.0
-
