@@ -891,6 +891,11 @@ add_firewall_rule() {
 	nft "insert rule $NFTABLE_NAME mangle_output meta skgid $DIRECT_GID counter return comment \"PSW2_DIRECT\""
 	nft "insert rule $NFTABLE_NAME nat_output meta skgid $DIRECT_GID counter return comment \"PSW2_DIRECT\""
 
+	# Packets marked 0xff (e.g. by bypass_guard) skip PassWall2 and go direct.
+	# The PSW2_ comment lets del_firewall_rule remove these on stop.
+	nft "insert rule $NFTABLE_NAME dstnat meta mark 0xff counter return comment \"PSW2_BYPASS_MARK\""
+	nft "insert rule $NFTABLE_NAME mangle_prerouting meta mark 0xff counter return comment \"PSW2_BYPASS_MARK\""
+
 	log_i18n 0 "%s firewall rules load complete!" "nftables"
 }
 
