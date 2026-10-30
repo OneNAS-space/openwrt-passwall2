@@ -1,0 +1,60 @@
+From d75f74f398e3233a6562d01887dfb5651cc8903d Mon Sep 17 00:00:00 2001
+From: Jackie Han <jackie.han@gmail.com>
+Date: Fri, 30 Oct 2026 21:41:26 +0800
+Subject: [PATCH] luci-app-passwall2: fix uci-defaults for fw4 and bad port
+ values
+
+- fw4 systems ship /sbin/fw3 as a symlink to fw4, so the -x /sbin/fw3
+  test was true on fw4 and wrote firewall.passwall2.reload, which fw4
+  reports as unsupported on every firewall reload. Test for /sbin/fw4
+  instead.
+- Remove the stale firewall.passwall2_server include left by old
+  versions; nothing generates its path anymore.
+- Blank tcp_no_redir_ports/udp_no_redir_ports values that are the
+  literal string 'disable'.
+---
+ .../root/etc/uci-defaults/luci-app-passwall2  | 23 +++++++++++++++----
+ 1 file changed, 19 insertions(+), 4 deletions(-)
+
+diff --git a/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2 b/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2
+index 85cd4ee..b6dde7f 100644
+--- a/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2
++++ b/luci-app-passwall2/root/etc/uci-defaults/luci-app-passwall2
+@@ -22,15 +22,30 @@ uci -q batch <<-EOF
+ 	commit uhttpd
+ EOF
+ 
+-if [ -x "/sbin/fw3" ]; then
+-	uci -q set firewall.passwall2.reload='1'
+-else
++# fw4 systems ship a /sbin/fw3 -> fw4 symlink, so test for fw4 itself.
++if [ -x "/sbin/fw4" ]; then
+ 	uci -q delete firewall.passwall2.reload
+ 	uci -q delete firewall.passwall2.fw4_compatible
++else
++	uci -q set firewall.passwall2.reload='1'
+ fi
++# Leftover include from older versions; nothing generates its path anymore.
++uci -q delete firewall.passwall2_server
+ uci commit firewall
+ 
+-[ ! -s "/etc/config/passwall2" ] && cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
++if [ ! -s "/etc/config/passwall2" ]; then
++    cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
++fi
++
++_patched=0
++for _bad_key in $(uci -q show passwall2 | grep -E "\.(tcp|udp)_no_redir_ports='disable'" | cut -d '=' -f 1); do
++    uci -q set "$_bad_key="
++    _patched=1
++done
++
++if [ "$_patched" -eq 1 ]; then
++    uci commit passwall2
++fi
+ 
+ chmod +x /usr/share/passwall2/*.sh
+ 
+-- 
+2.43.0
+

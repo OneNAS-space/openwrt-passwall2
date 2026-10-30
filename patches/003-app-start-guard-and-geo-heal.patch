@@ -1,0 +1,70 @@
+From e3ce876871c7d262432920c166f016d33d727529 Mon Sep 17 00:00:00 2001
+From: Jackie Han <jackie.han@gmail.com>
+Date: Fri, 30 Oct 2026 21:41:26 +0800
+Subject: [PATCH] app: do not start when geo rules or cores are missing, heal
+ geo rules
+
+After a sysupgrade or a fresh install the config is kept but the geo rule
+files and the xray/sing-box binaries are gone. Starting anyway makes the
+core abort or keep running without rules (network outage), and with both
+cores missing run_func is empty in acl_node, which executes the node
+arguments as a command and then blocks on "cat" without a file.
+
+Before starting, if the service is enabled:
+- missing geoip.dat/geosite.dat: fetch them in the background with
+  rule_update.lua (which restarts the service when done);
+- both xray and sing-box missing: log "missing core-bin" and point to the
+  App Update page; nothing is downloaded automatically.
+In either case the start is skipped and the firewall is left untouched.
+
+Also, when a core fails its "run -test" because geoip.dat/geosite.dat
+cannot be loaded (xray reports it under common/geodata), fetch the rule
+files again in the background. A marker under /var/lock limits this to
+one automatic attempt per boot, so a file that is still unusable cannot
+cause a download/restart loop.
+---
+ .../root/usr/share/passwall2/app.sh           | 21 +++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/luci-app-passwall2/root/usr/share/passwall2/app.sh b/luci-app-passwall2/root/usr/share/passwall2/app.sh
+index c00e32b..a3d361b 100755
+--- a/luci-app-passwall2/root/usr/share/passwall2/app.sh
++++ b/luci-app-passwall2/root/usr/share/passwall2/app.sh
+@@ -855,6 +855,11 @@ acl_node() {
+ 		if [ "$status" != 0 ]; then
+ 			log_i18n 2 "[%s] process %s error, skip this transparent proxy!" "${node}" "${config_file}"
+ 			cat ${_error_log_file} >> ${LOG_FILE}
++			[ ! -e "${LOCK_PATH}/${CONFIG}_geo_healed" ] && grep -q 'common/geodata' "${_error_log_file}" 2>/dev/null && {
++				touch "${LOCK_PATH}/${CONFIG}_geo_healed"
++				log 2 "Geo rule files seem to be corrupted, re-downloading them in the background."
++				{ lua $APP_PATH/rule_update.lua log geoip,geosite >/dev/null 2>&1 & }
++			}
+ 			unset _error_log_file
+ 			continue
+ 		fi
+@@ -912,6 +917,22 @@ start() {
+ 	export ENABLE_DEPRECATED_GEOSITE=true
+ 	export ENABLE_DEPRECATED_GEOIP=true
+ 	export SS_SYSTEM_DNS_RESOLVER_FORCE_BUILTIN=1
++	if [ "$ENABLED_DEFAULT_ACL" = 1 ] || [ "$ENABLED_ACLS" = 1 ] || [ "$SOCKS_ENABLED" = 1 ]; then
++		local _geo_dir="${V2RAY_LOCATION_ASSET%/}" _miss_rule= _miss_core=
++		{ [ ! -s "${_geo_dir}/geoip.dat" ] || [ ! -s "${_geo_dir}/geosite.dat" ]; } && _miss_rule=1
++		[ -z "$XRAY_BIN" ] && [ -z "$SINGBOX_BIN" ] && _miss_core=1
++		[ -n "$_miss_rule" ] && {
++			log 0 "Geo rule files are missing, downloading them in the background."
++			{ lua $APP_PATH/rule_update.lua log geoip,geosite >/dev/null 2>&1 & }
++		}
++		[ -n "$_miss_core" ] && log 0 "missing core-bin: xray / sing-box not found, please install a core on the App Update page."
++		[ -n "$_miss_rule$_miss_core" ] && {
++			log 0 "PassWall2 is not started."
++			set_cache_var "ENABLED_DEFAULT_ACL" "0"
++			set_cache_var "ENABLED_ACLS" "0"
++			return 0
++		}
++	fi
+ 	ulimit -n 65535
+ 	start_haproxy
+ 	start_socks
+-- 
+2.43.0
+

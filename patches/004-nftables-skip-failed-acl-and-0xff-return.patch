@@ -1,0 +1,52 @@
+From 1e505a079ac047cb89d220d6538f780e2d25accb Mon Sep 17 00:00:00 2001
+From: Jackie Han <jackie.han@gmail.com>
+Date: Fri, 30 Oct 2026 21:41:26 +0800
+Subject: [PATCH] nftables: skip ACLs whose core failed, return on packets
+ marked 0xff
+
+- load_acl() starts the cores through acl_node() and then adds the
+  redirect/TPROXY and DNS rules for every ACL unconditionally. When a
+  core fails its "run -test", acl_node() only logs the error, so the rules
+  point at a port nobody listens on and the network is cut. acl_node()
+  removes acl_node_<flag> only after the core started, so a file that is
+  still there marks a failed ACL; skip the rules of such an ACL so its
+  traffic goes direct.
+- Insert a "meta mark 0xff return" rule at the top of dstnat and
+  mangle_prerouting when the firewall rules are loaded, so packets that an
+  external script marked 0xff are left alone and go direct. The rules
+  carry a PSW2_ comment, so del_firewall_rule removes them on stop and
+  they are re-created on start.
+---
+ luci-app-passwall2/root/usr/share/passwall2/nftables.sh | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/luci-app-passwall2/root/usr/share/passwall2/nftables.sh b/luci-app-passwall2/root/usr/share/passwall2/nftables.sh
+index 2a110c0..ba34664 100755
+--- a/luci-app-passwall2/root/usr/share/passwall2/nftables.sh
++++ b/luci-app-passwall2/root/usr/share/passwall2/nftables.sh
+@@ -279,6 +279,10 @@ load_acl() {
+ 	log_i18n 1 "Access Control:"
+ 	acl_node
+ 	for sid in $(jsonfilter -s "${ACL_JSON}" -e '$.acl[*].flag'); do
++		[ -f "${TMP_ACL_PATH}/acl_node_${sid}" ] && {
++			log 2 "[${sid}] core failed to start, skip its firewall rules, direct connection is used."
++			continue
++		}
+ 		eval $(cat "${TMP_ACL_PATH}/${sid}/var")
+ 
+ 		[ -z "$(get_cache_var "node_${node}_gen_shunt_list")" ] && [ -n "${node}" ] && gen_shunt_list "${node}" shunt_list4 shunt_list6
+@@ -887,6 +891,11 @@ add_firewall_rule() {
+ 	nft "insert rule $NFTABLE_NAME mangle_output meta skgid $DIRECT_GID counter return comment \"PSW2_DIRECT\""
+ 	nft "insert rule $NFTABLE_NAME nat_output meta skgid $DIRECT_GID counter return comment \"PSW2_DIRECT\""
+ 
++	# Packets marked 0xff (e.g. by bypass_guard) skip PassWall2 and go direct.
++	# The PSW2_ comment lets del_firewall_rule remove these on stop.
++	nft "insert rule $NFTABLE_NAME dstnat meta mark 0xff counter return comment \"PSW2_BYPASS_MARK\""
++	nft "insert rule $NFTABLE_NAME mangle_prerouting meta mark 0xff counter return comment \"PSW2_BYPASS_MARK\""
++
+ 	log_i18n 0 "%s firewall rules load complete!" "nftables"
+ }
+ 
+-- 
+2.43.0
+
