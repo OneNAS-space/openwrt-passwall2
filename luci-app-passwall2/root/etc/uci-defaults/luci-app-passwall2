@@ -2,7 +2,7 @@
 
 if [ -e "/etc/config/ucitrack" ]; then
 	uci -q batch <<-EOF
- 		delete ucitrack.@passwall2[-1]
+		delete ucitrack.@passwall2[-1]
 		add ucitrack passwall2
 		set ucitrack.@passwall2[-1].init=passwall2
 		commit ucitrack
@@ -22,15 +22,30 @@ uci -q batch <<-EOF
 	commit uhttpd
 EOF
 
-if [ -x "/sbin/fw3" ]; then
-	uci -q set firewall.passwall2.reload='1'
-else
+# fw4 systems ship a /sbin/fw3 -> fw4 symlink, so test for fw4 itself.
+if [ -x "/sbin/fw4" ]; then
 	uci -q delete firewall.passwall2.reload
 	uci -q delete firewall.passwall2.fw4_compatible
+else
+	uci -q set firewall.passwall2.reload='1'
 fi
+# Leftover include from older versions; nothing generates its path anymore.
+uci -q delete firewall.passwall2_server
 uci commit firewall
 
-[ ! -s "/etc/config/passwall2" ] && cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
+if [ ! -s "/etc/config/passwall2" ]; then
+	cp -f /usr/share/passwall2/0_default_config /etc/config/passwall2
+fi
+
+_patched=0
+for _bad_key in $(uci -q show passwall2 | grep -E "\.(tcp|udp)_no_redir_ports='disable'" | cut -d '=' -f 1); do
+	uci -q set "$_bad_key="
+	_patched=1
+done
+
+if [ "$_patched" -eq 1 ]; then
+	uci commit passwall2
+fi
 
 chmod +x /usr/share/passwall2/*.sh
 

@@ -2106,6 +2106,37 @@ function gen_config(var)
 			}
 		}
 
+		-- Main node only: expose a loopback-only API (RoutingService) so LuCI can show which node each balancer currently picks.
+		-- Use var["flag"] here: the local "flag" may have lost its "acl_" prefix above.
+		if var["flag"] == "acl_default" and not NO_RUN then
+			local info_file = api.TMP_PATH .. "/balancer_info"
+			os.remove(info_file)
+			if #balancers > 0 then
+				local api_port = api.get_new_port()
+				if api_port then
+					config.api = {
+						tag = "api",
+						listen = "127.0.0.1:" .. api_port,
+						services = { "RoutingService" }
+					}
+					local blc_info = { port = api_port, balancers = {} }
+					for _, b in ipairs(balancers) do
+						blc_info.balancers[#blc_info.balancers + 1] = {
+							tag = b.tag,
+							id = b.tag:gsub("^balancer%-", ""),
+							strategy = b.strategy and b.strategy.type or "random",
+							fallback = b.fallbackTag
+						}
+					end
+					local f = io.open(info_file, "w")
+					if f then
+						f:write(jsonc.stringify(blc_info))
+						f:close()
+					end
+				end
+			end
+		end
+
 		local direct_outbound = {
 			protocol = "freedom",
 			tag = "direct",
