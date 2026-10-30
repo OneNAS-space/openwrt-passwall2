@@ -312,9 +312,13 @@ function gen_outbound(flag, node, tag, proxy_table)
 					local finalmask = {}
 					local TP = node.transport
 					if TP == "mkcp" then
+						local s = { type = "mkcp-legacy" }
+						if node.mkcp_seed and node.mkcp_seed ~= "" then
+							s.settings = { value = node.mkcp_seed }
+						end
+						local udp = { s }
 						local map = {none = "none", srtp = "srtp", utp = "utp", ["wechat-video"] = "wechat",
 							dtls = "dtls", wireguard = "wireguard", dns = "dns"}
-						local udp = {}
 						if node.mkcp_guise and node.mkcp_guise ~= "none" then
 							local g = { type = "mkcp-legacy" }
 							g.settings = { header = map[node.mkcp_guise] }
@@ -323,11 +327,6 @@ function gen_outbound(flag, node, tag, proxy_table)
 							end
 							udp[#udp+1] = g
 						end
-						local s = { type = "mkcp-legacy" }
-						if node.mkcp_seed and node.mkcp_seed ~= "" then
-							s.settings = { value = node.mkcp_seed }
-						end
-						udp[#udp+1] = s
 						finalmask.udp = udp
 					elseif TP == "hysteria" then
 						local udp = {}
@@ -812,9 +811,13 @@ function gen_config_server(node)
 					finalmask = (function()
 						local finalmask = {}
 						if node.transport == "mkcp" then
+							local s = { type = "mkcp-legacy" }
+							if node.mkcp_seed and node.mkcp_seed ~= "" then
+								s.settings = { value = node.mkcp_seed }
+							end
+							local udp = { s }
 							local map = {none = "none", srtp = "srtp", utp = "utp", ["wechat-video"] = "wechat",
 								dtls = "dtls", wireguard = "wireguard", dns = "dns"}
-							local udp = {}
 							if node.mkcp_guise and node.mkcp_guise ~= "none" then
 								local g = { type = "mkcp-legacy" }
 								g.settings = { header = map[node.mkcp_guise] }
@@ -823,11 +826,6 @@ function gen_config_server(node)
 								end
 								udp[#udp+1] = g
 							end
-							local s = { type = "mkcp-legacy" }
-							if node.mkcp_seed and node.mkcp_seed ~= "" then
-								s.settings = { value = node.mkcp_seed }
-							end
-							udp[#udp+1] = s
 							finalmask.udp = udp
 						elseif node.transport == "hysteria" then
 							local udp = {}
@@ -2107,37 +2105,6 @@ function gen_config(var)
 				min = xray_min_version
 			}
 		}
-
-		-- Main node only: expose a loopback-only API (RoutingService) so LuCI can show which node each balancer currently picks.
-		-- Use var["flag"] here: the local "flag" may have lost its "acl_" prefix above.
-		if var["flag"] == "acl_default" and not NO_RUN then
-			local info_file = api.TMP_PATH .. "/balancer_info"
-			os.remove(info_file)
-			if #balancers > 0 then
-				local api_port = api.get_new_port()
-				if api_port then
-					config.api = {
-						tag = "api",
-						listen = "127.0.0.1:" .. api_port,
-						services = { "RoutingService" }
-					}
-					local blc_info = { port = api_port, balancers = {} }
-					for _, b in ipairs(balancers) do
-						blc_info.balancers[#blc_info.balancers + 1] = {
-							tag = b.tag,
-							id = b.tag:gsub("^balancer%-", ""),
-							strategy = b.strategy and b.strategy.type or "random",
-							fallback = b.fallbackTag
-						}
-					end
-					local f = io.open(info_file, "w")
-					if f then
-						f:write(jsonc.stringify(blc_info))
-						f:close()
-					end
-				end
-			end
-		end
 
 		local direct_outbound = {
 			protocol = "freedom",
