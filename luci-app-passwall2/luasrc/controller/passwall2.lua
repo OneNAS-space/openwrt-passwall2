@@ -282,7 +282,19 @@ end
 
 function index_status()
 	local e = {}
-	e["global_status"] = luci.sys.call("/bin/busybox top -bn1 | grep -v 'grep' | grep '%s/bin/' | grep '/acl_default\\.json' >/dev/null" % api.TMP_PATH) == 0
+	local coms = require "luci.passwall2.com"
+	local out = luci.sys.exec("/bin/busybox top -bn1 | grep -v 'grep' | grep '%s/bin/' | grep '/acl_default\\.json'" % api.TMP_PATH)
+	e["global_status"] = out ~= ""
+	local name = out:match("/bin/([%w%-]+) ")
+	if not name then
+		local node = uci_get("@global[0]", "node")
+		name = node and uci_get(node, "type")
+	end
+	name = name and name:lower()
+	e["core_name"] = name and coms[name] and coms[name].name or nil
+	if not e["global_status"] then
+		e["core_missing"] = not api.finded_com("xray") and not api.finded_com("sing-box")
+	end
 	http_write_json(e)
 end
 
