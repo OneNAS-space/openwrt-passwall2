@@ -14,7 +14,7 @@ on:
   repository_dispatch:
   workflow_dispatch:
   workflow_run:
-    workflows: ["Apply patches and sanitize"]
+    workflows: ["Sync and Apply patches"]
     types:
       - completed
 
