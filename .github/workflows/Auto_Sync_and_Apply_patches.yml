@@ -7,7 +7,7 @@
 #      apply every patches/*.patch, and commit the result to main.
 # Everything outside luci-app-passwall2 on main (patches/, .github/, README ...)
 # is never touched. Edits to luci-app-passwall2 must therefore go through patches/.
-name: Sync and Apply patches
+name: Auto Sync and Apply patches
 
 on:
   schedule:
