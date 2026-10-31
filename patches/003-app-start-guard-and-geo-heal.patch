@@ -1,4 +1,4 @@
-From e3ce876871c7d262432920c166f016d33d727529 Mon Sep 17 00:00:00 2001
+From 159540dd23eadef678b61fc6ba207e968995d5d2 Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
 Date: Fri, 30 Oct 2026 21:41:26 +0800
 Subject: [PATCH] app: do not start when geo rules or cores are missing, heal
@@ -17,20 +17,74 @@ Before starting, if the service is enabled:
   App Update page; nothing is downloaded automatically.
 In either case the start is skipped and the firewall is left untouched.
 
+acl_node() used to hand a node whose core is not installed to the other
+core (an xray node to sing-box). With only sing-box present that starts a
+config that cannot work (balancers, xray-only transports) and logs nothing
+useful, so the proxy silently fails. Now a node needs the core of its own
+type: otherwise log "missing core-bin: <core> not found" with the node name
+and skip it. The ACL keeps its acl_node_<flag> file, so its firewall rules
+are skipped and its traffic goes direct.
+When that leaves no ACL running, log "PassWall2 is not started." too.
+
 Also, when a core fails its "run -test" because geoip.dat/geosite.dat
 cannot be loaded (xray reports it under common/geodata), fetch the rule
 files again in the background. A marker under /var/lock limits this to
 one automatic attempt per boot, so a file that is still unusable cannot
 cause a download/restart loop.
----
- .../root/usr/share/passwall2/app.sh           | 21 +++++++++++++++++++
- 1 file changed, 21 insertions(+)
 
+Finally, after App Update replaces a core, restart PassWall2 also when it
+is switched on but was not running. Only a running core triggered the
+restart before, so a service that refused to start for a missing core
+stayed down after the core had been installed.
+---
+ luci-app-passwall2/luasrc/passwall2/api.lua   |  4 ++-
+ .../root/usr/share/passwall2/app.sh           | 35 ++++++++++++++++++-
+ 2 files changed, 37 insertions(+), 2 deletions(-)
+
+diff --git a/luci-app-passwall2/luasrc/passwall2/api.lua b/luci-app-passwall2/luasrc/passwall2/api.lua
+index 7211e67..7629034 100644
+--- a/luci-app-passwall2/luasrc/passwall2/api.lua
++++ b/luci-app-passwall2/luasrc/passwall2/api.lua
+@@ -1543,7 +1543,9 @@ function to_move(app_name,file)
+ 	result = exec("/bin/mv", { "-f", bin_path, app_path }, nil, command_timeout) == 0
+ 
+ 	sys.call(cmd_rm_tmp)
+-	if flag == 0 then
++	-- Also start it when it is switched on but was not running: with a core missing
++	-- the start is skipped, and nothing else would start it once the core is here.
++	if flag == 0 or require("luci.model.uci").cursor():get(appname, "@global[0]", "enabled") == "1" then
+ 		sys.call("/etc/init.d/passwall2 restart >/dev/null 2>&1 &")
+ 	end
+ 
 diff --git a/luci-app-passwall2/root/usr/share/passwall2/app.sh b/luci-app-passwall2/root/usr/share/passwall2/app.sh
-index c00e32b..a3d361b 100755
+index c00e32b..d61e233 100755
 --- a/luci-app-passwall2/root/usr/share/passwall2/app.sh
 +++ b/luci-app-passwall2/root/usr/share/passwall2/app.sh
-@@ -855,6 +855,11 @@ acl_node() {
+@@ -836,7 +836,7 @@ acl_node() {
+ 		json_add_string "LOG" "0"
+ 		lua $APP_PATH/helper_dnsmasq.lua restart "$(json_dump)"
+ 	}
+-	local run_func
++	local run_func _core_miss= _acl_ok=0
+ 	[ -n "${XRAY_BIN}" ] && run_func="run_xray"
+ 	[ -n "${SINGBOX_BIN}" ] && run_func="run_singbox"
+ 	for nid in $(jsonfilter -s "${ACL_JSON}" -e '$.node_order[*]'); do
+@@ -845,6 +845,14 @@ acl_node() {
+ 		eval local ${_var}
+ 		local type=$(echo $(config_n_get $node type) | tr 'A-Z' 'a-z')
+ 		[ -n "${type}" ] || continue
++		local _need_bin=
++		[ "${type}" = "xray" ] && [ -z "${XRAY_BIN}" ] && _need_bin="xray"
++		[ "${type}" = "sing-box" ] && [ -z "${SINGBOX_BIN}" ] && _need_bin="sing-box"
++		[ -n "${_need_bin}" ] && {
++			log 0 "missing core-bin: ${_need_bin} not found, node [$(config_n_get $node remarks)] is not started, please install it on the App Update page."
++			_core_miss=1
++			continue
++		}
+ 		if [ "${type}" = "xray" ] && [ -n "${XRAY_BIN}" ]; then
+ 			run_func="run_xray"
+ 		elif [ "${type}" = "sing-box" ] && [ -n "${SINGBOX_BIN}" ]; then
+@@ -855,6 +863,11 @@ acl_node() {
  		if [ "$status" != 0 ]; then
  			log_i18n 2 "[%s] process %s error, skip this transparent proxy!" "${node}" "${config_file}"
  			cat ${_error_log_file} >> ${LOG_FILE}
@@ -42,7 +96,19 @@ index c00e32b..a3d361b 100755
  			unset _error_log_file
  			continue
  		fi
-@@ -912,6 +917,22 @@ start() {
+@@ -896,7 +909,11 @@ acl_node() {
+ 			log 2 "Dnsmasq[${dnsmasq_port}]:(127.0.0.1:${dns_listen_port})"
+ 		}
+ 		rm -f ${TMP_ACL_PATH}/acl_node_${nid}
++		_acl_ok=$((_acl_ok + 1))
+ 	done
++	if [ -n "${_core_miss}" ] && [ "${_acl_ok}" = 0 ]; then
++		log 0 "PassWall2 is not started."
++	fi
+ }
+ 
+ start() {
+@@ -912,6 +929,22 @@ start() {
  	export ENABLE_DEPRECATED_GEOSITE=true
  	export ENABLE_DEPRECATED_GEOIP=true
  	export SS_SYSTEM_DNS_RESOLVER_FORCE_BUILTIN=1
@@ -67,4 +133,3 @@ index c00e32b..a3d361b 100755
  	start_socks
 -- 
 2.43.0
-
