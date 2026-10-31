@@ -1,4 +1,4 @@
-From a5037bc04ec245e890b7df0d2162a1cab495e645 Mon Sep 17 00:00:00 2001
+From 34733f8500895f3a09593424ce711af6b5c65c0c Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
 Date: Fri, 30 Oct 2026 21:41:27 +0800
 Subject: [PATCH] luci-app-passwall2: show core name and missing-core hint on
@@ -8,19 +8,21 @@ The Core status card on the Main page now shows the actual core in use
 (Xray / Sing-Box) instead of the hardcoded "Core". The name is taken from
 the running core process, or from the default node type when stopped.
 
-When neither xray nor sing-box is installed and the service is not running,
-the card shows "NOT INSTALLED" and becomes clickable, jumping to the App
-Update page. The card is built with DOM APIs instead of innerHTML.
+When the service is not running and the core required by the default node
+(xray or sing-box, by its type) is not installed, the card shows
+"NOT INSTALLED" and becomes clickable, jumping to the App Update page.
+Without a known node type it still requires both cores to be missing.
+The card is built with DOM APIs instead of innerHTML.
 ---
- .../luasrc/controller/passwall2.lua           | 14 +++++++-
+ .../luasrc/controller/passwall2.lua           | 19 ++++++++++-
  .../luasrc/view/passwall2/global/status.htm   | 33 +++++++++++++++----
- 2 files changed, 39 insertions(+), 8 deletions(-)
+ 2 files changed, 44 insertions(+), 8 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/controller/passwall2.lua b/luci-app-passwall2/luasrc/controller/passwall2.lua
-index 36e4ed5..57e3b5d 100644
+index 36e4ed5..e7fb3fd 100644
 --- a/luci-app-passwall2/luasrc/controller/passwall2.lua
 +++ b/luci-app-passwall2/luasrc/controller/passwall2.lua
-@@ -282,7 +282,19 @@ end
+@@ -282,7 +282,24 @@ end
  
  function index_status()
  	local e = {}
@@ -36,7 +38,12 @@ index 36e4ed5..57e3b5d 100644
 +	name = name and name:lower()
 +	e["core_name"] = name and coms[name] and coms[name].name or nil
 +	if not e["global_status"] then
-+		e["core_missing"] = not api.finded_com("xray") and not api.finded_com("sing-box")
++		if name == "xray" or name == "sing-box" then
++			-- A node runs on the core of its own type only.
++			e["core_missing"] = not api.finded_com(name)
++		else
++			e["core_missing"] = not api.finded_com("xray") and not api.finded_com("sing-box")
++		end
 +	end
  	http_write_json(e)
  end
@@ -94,4 +101,3 @@ index 93e5fe5..304a1a1 100644
  				}
 -- 
 2.43.0
-
