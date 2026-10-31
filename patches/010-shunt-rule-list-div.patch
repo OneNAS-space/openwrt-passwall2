@@ -1,4 +1,4 @@
-From d81d90e7c66054330a87d96970f6742b28ec8db9 Mon Sep 17 00:00:00 2001
+From 9aff43f49b7c3100e2a0397a0cb6166a7c3096f9 Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
 Date: Fri, 30 Oct 2026 21:41:27 +0800
 Subject: [PATCH] shunt_rule_list: replace fieldset with div
@@ -8,7 +8,7 @@ Subject: [PATCH] shunt_rule_list: replace fieldset with div
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm b/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
-index bfbbdf1..e2c8868 100644
+index f294417..744d5dc 100644
 --- a/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
 +++ b/luci-app-passwall2/luasrc/view/passwall2/rule/shunt_rule_list.htm
 @@ -286,7 +286,7 @@ table td, .table .td {
@@ -30,7 +30,7 @@ index bfbbdf1..e2c8868 100644
  
  <script type="text/template" id="shunt_rule-tr-template">
 @@ -392,7 +392,7 @@ table td, .table .td {
- 			
+ 
  			function addTabDOM(li, content) {
  				let tab_ul_html = '<ul class="cbi-tabmenu">';
 -				let tab_content_html = '<fieldset class="cbi-section-shunt_rule cbi-section-shunt_rule-tabbed" id="cbi-<%=appname%>-shunt_rules">';
@@ -49,4 +49,3 @@ index bfbbdf1..e2c8868 100644
  
 -- 
 2.43.0
-
