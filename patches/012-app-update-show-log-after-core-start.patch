@@ -1,0 +1,63 @@
+From 4d190089e1aa7e226e9f61069fe22e2e6e0d80e0 Mon Sep 17 00:00:00 2001
+From: Jackie Han <jackie.han@gmail.com>
+Date: Sat, 31 Oct 2026 13:58:46 +0800
+Subject: [PATCH] luci-app-passwall2: show the log after a core install started
+ the service
+
+App Update reloads the page once every update has finished. When the
+service was started by installing a missing core (api.to_move reports
+started), go to the Runtime Logs page instead, so the start-up is visible
+without looking for it. With several cores the jump waits until all of
+them are done, like the reload did. Updates of a core that was in use
+still reload the page.
+---
+ .../luasrc/view/passwall2/app_update/app_version.htm | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/luci-app-passwall2/luasrc/view/passwall2/app_update/app_version.htm b/luci-app-passwall2/luasrc/view/passwall2/app_update/app_version.htm
+index fc74333..e4a5b4a 100644
+--- a/luci-app-passwall2/luasrc/view/passwall2/app_update/app_version.htm
++++ b/luci-app-passwall2/luasrc/view/passwall2/app_update/app_version.htm
+@@ -28,6 +28,7 @@ local com = self.com
+ 	var updateFailedText = '<%:Update failed%>';
+ 	var unknownErrorText = '<%:Unknown error%>';
+ 	var componentUpdates = 0, luciUpdating = false;
++	var showLog = false;
+ 
+ 	function syncUpdateButtons() {
+ 		var buttons = document.querySelectorAll('#app_version input[data-update-app]');
+@@ -65,16 +66,21 @@ local com = self.com
+ 		}
+ 	}
+ 
+-	function onUpdateSuccess(btn) {
++	function onUpdateSuccess(btn, json) {
+ 		if (btn) {
+ 			btn.value = updateSuccessText;
+ 			btn.placeholder = updateSuccessText;
+ 			setButtonDisabled(btn, true);
+ 		}
++		// The service was started because a missing core is installed now.
++		if (json && json.started) showLog = true;
+ 
+ 		if (inProgressCount === 0) {
+ 			window.setTimeout(function () {
+-				if (inProgressCount === 0 && !luciUpdating) window.location.reload();
++				if (inProgressCount === 0 && !luciUpdating) {
++					if (showLog) window.location.href = '<%=api.url("log")%>';
++					else window.location.reload();
++				}
+ 			}, 1000);
+ 		}
+ 	}
+@@ -251,7 +257,7 @@ local com = self.com
+ 			if (!json || json.code) {
+ 				onRequestError(btn, json && json.error);
+ 			} else {
+-				onUpdateSuccess(btn);
++				onUpdateSuccess(btn, json);
+ 			}
+ 		}, 300)
+ 	}
+-- 
+2.43.0
