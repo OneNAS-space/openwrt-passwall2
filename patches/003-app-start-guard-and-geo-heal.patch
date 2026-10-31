@@ -1,4 +1,4 @@
-From 159540dd23eadef678b61fc6ba207e968995d5d2 Mon Sep 17 00:00:00 2001
+From 7e71e5e55af44dd9d19d54b54bc0a4cacd107873 Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
 Date: Fri, 30 Oct 2026 21:41:26 +0800
 Subject: [PATCH] app: do not start when geo rules or cores are missing, heal
@@ -32,30 +32,51 @@ files again in the background. A marker under /var/lock limits this to
 one automatic attempt per boot, so a file that is still unusable cannot
 cause a download/restart loop.
 
-Finally, after App Update replaces a core, restart PassWall2 also when it
-is switched on but was not running. Only a running core triggered the
-restart before, so a service that refused to start for a missing core
-stayed down after the core had been installed.
+Finally, after App Update replaces a core, also start PassWall2 when it is
+switched on but nothing is running, which is what a start skipped for a
+missing core leaves behind, and return started=true so the page can show
+the log. Only a running core triggered a restart before, so the service
+stayed down after the core had been installed. Updating a core that is not
+in use does not restart a service that is running.
 ---
- luci-app-passwall2/luasrc/passwall2/api.lua   |  4 ++-
+ luci-app-passwall2/luasrc/passwall2/api.lua   |  9 +++--
  .../root/usr/share/passwall2/app.sh           | 35 ++++++++++++++++++-
- 2 files changed, 37 insertions(+), 2 deletions(-)
+ 2 files changed, 41 insertions(+), 3 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/passwall2/api.lua b/luci-app-passwall2/luasrc/passwall2/api.lua
-index 7211e67..7629034 100644
+index 7211e67..f614130 100644
 --- a/luci-app-passwall2/luasrc/passwall2/api.lua
 +++ b/luci-app-passwall2/luasrc/passwall2/api.lua
-@@ -1543,7 +1543,9 @@ function to_move(app_name,file)
+@@ -1536,6 +1536,10 @@ function to_move(app_name,file)
+ 	end
+ 
+ 	local flag = sys.call('busybox pgrep -af "passwall2/.*'.. app_name ..'" >/dev/null')
++	-- PassWall2 is switched on but nothing is running (the start was skipped for a missing core).
++	local was_off = flag ~= 0
++		and require("luci.model.uci").cursor():get(appname, "@global[0]", "enabled") == "1"
++		and sys.call('busybox pgrep -f "passwall2/bin/.*acl_default[.]json" >/dev/null') ~= 0
+ 	if flag == 0 then
+ 		sys.call("/etc/init.d/passwall2 stop")
+ 	end
+@@ -1543,7 +1547,8 @@ function to_move(app_name,file)
  	result = exec("/bin/mv", { "-f", bin_path, app_path }, nil, command_timeout) == 0
  
  	sys.call(cmd_rm_tmp)
 -	if flag == 0 then
-+	-- Also start it when it is switched on but was not running: with a core missing
-+	-- the start is skipped, and nothing else would start it once the core is here.
-+	if flag == 0 or require("luci.model.uci").cursor():get(appname, "@global[0]", "enabled") == "1" then
++	-- A service that was off for a missing core is started now that a core is here.
++	if flag == 0 or was_off then
  		sys.call("/etc/init.d/passwall2 restart >/dev/null 2>&1 &")
  	end
  
+@@ -1554,7 +1559,7 @@ function to_move(app_name,file)
+ 		}
+ 	end
+ 
+-	return {code = 0}
++	return {code = 0, started = was_off}
+ end
+ 
+ function get_version()
 diff --git a/luci-app-passwall2/root/usr/share/passwall2/app.sh b/luci-app-passwall2/root/usr/share/passwall2/app.sh
 index c00e32b..d61e233 100755
 --- a/luci-app-passwall2/root/usr/share/passwall2/app.sh
