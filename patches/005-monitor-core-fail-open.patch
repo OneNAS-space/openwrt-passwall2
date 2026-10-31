@@ -1,4 +1,4 @@
-From 9927faec8f0ef2abd5fc17144a3b6d365495c803 Mon Sep 17 00:00:00 2001
+From ddf27304dfbceb997f7e576bf9f823e896e5042a Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
 Date: Fri, 30 Oct 2026 21:41:26 +0800
 Subject: [PATCH] monitor: stop PassWall2 when a core cannot be brought back
@@ -13,11 +13,11 @@ the core is still not running, stop PassWall2 (which removes the firewall
 rules and restores dnsmasq) so traffic goes direct again. Other monitored
 processes keep the old behaviour.
 ---
- .../root/usr/share/passwall2/monitor.sh       | 45 +++++++++++++++----
- 1 file changed, 37 insertions(+), 8 deletions(-)
+ .../root/usr/share/passwall2/monitor.sh       | 43 ++++++++++++++++---
+ 1 file changed, 36 insertions(+), 7 deletions(-)
 
 diff --git a/luci-app-passwall2/root/usr/share/passwall2/monitor.sh b/luci-app-passwall2/root/usr/share/passwall2/monitor.sh
-index 216ae86..d4b4f86 100755
+index 30830a7..d4b4f86 100755
 --- a/luci-app-passwall2/root/usr/share/passwall2/monitor.sh
 +++ b/luci-app-passwall2/root/usr/share/passwall2/monitor.sh
 @@ -7,6 +7,24 @@ ENABLED=$(config_n_get @global[0] enabled 0)
@@ -45,7 +45,7 @@ index 216ae86..d4b4f86 100755
  sleep 58s
  while [ "$ENABLED" -eq 1 ]; do
  	[ -f "$LOCK_FILE" ] && {
-@@ -17,16 +35,27 @@ while [ "$ENABLED" -eq 1 ]; do
+@@ -17,13 +35,24 @@ while [ "$ENABLED" -eq 1 ]; do
  	[ -d ${TMP_SCRIPT_FUNC_PATH} ] && {
  		for filename in $(ls ${TMP_SCRIPT_FUNC_PATH} | grep -v "^_"); do
  			cmd=$(cat ${TMP_SCRIPT_FUNC_PATH}/${filename})
@@ -76,11 +76,6 @@ index 216ae86..d4b4f86 100755
 +			done
  		done
  	}
--	
-+
- 	rm -f $LOCK_FILE
- 	sleep 58s
- done
+ 
 -- 
 2.43.0
-
