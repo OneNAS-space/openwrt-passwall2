@@ -536,7 +536,7 @@ function strToTable(str)
 	if str == nil or type(str) ~= "string" then
 		return {}
 	end
-	
+
 	return loadstring("return " .. str)()
 end
 
@@ -922,7 +922,7 @@ function clone(org)
 			end
 		end
 	end
- 
+
 	local res = {}
 	copy(org, res)
 	return res
@@ -1536,6 +1536,10 @@ function to_move(app_name,file)
 	end
 
 	local flag = sys.call('busybox pgrep -af "passwall2/.*'.. app_name ..'" >/dev/null')
+	-- PassWall2 is switched on but nothing is running (the start was skipped for a missing core).
+	local was_off = flag ~= 0
+		and require("luci.model.uci").cursor():get(appname, "@global[0]", "enabled") == "1"
+		and sys.call('busybox pgrep -f "passwall2/bin/.*acl_default[.]json" >/dev/null') ~= 0
 	if flag == 0 then
 		sys.call("/etc/init.d/passwall2 stop")
 	end
@@ -1543,7 +1547,8 @@ function to_move(app_name,file)
 	result = exec("/bin/mv", { "-f", bin_path, app_path }, nil, command_timeout) == 0
 
 	sys.call(cmd_rm_tmp)
-	if flag == 0 then
+	-- A service that was off for a missing core is started now that a core is here.
+	if flag == 0 or was_off then
 		sys.call("/etc/init.d/passwall2 restart >/dev/null 2>&1 &")
 	end
 
@@ -1554,7 +1559,7 @@ function to_move(app_name,file)
 		}
 	end
 
-	return {code = 0}
+	return {code = 0, started = was_off}
 end
 
 function get_version()

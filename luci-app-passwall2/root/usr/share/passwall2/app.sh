@@ -781,7 +781,7 @@ run_ipset_chinadns_ng() {
 		node_servers=$(uci show "${CONFIG}" | grep -E "(.address=|.download_address=)" | cut -d "'" -f 2)
 		hosts_foreach "node_servers" host_from_url | grep '[a-zA-Z]$' | sort -u | grep -v "engage.cloudflareclient.com" > $TMP_ACL_PATH/vpslist
 	}
-	
+
 	[ -n "${ipset}" ] && {
 		set_names=$ipset
 		vps_set_names="psw2_vps,psw2_vps6"
@@ -836,7 +836,7 @@ acl_node() {
 		json_add_string "LOG" "0"
 		lua $APP_PATH/helper_dnsmasq.lua restart "$(json_dump)"
 	}
-	local run_func
+	local run_func _core_miss= _acl_ok=0
 	[ -n "${XRAY_BIN}" ] && run_func="run_xray"
 	[ -n "${SINGBOX_BIN}" ] && run_func="run_singbox"
 	for nid in $(jsonfilter -s "${ACL_JSON}" -e '$.node_order[*]'); do
@@ -845,6 +845,14 @@ acl_node() {
 		eval local ${_var}
 		local type=$(echo $(config_n_get $node type) | tr 'A-Z' 'a-z')
 		[ -n "${type}" ] || continue
+		local _need_bin=
+		[ "${type}" = "xray" ] && [ -z "${XRAY_BIN}" ] && _need_bin="xray"
+		[ "${type}" = "sing-box" ] && [ -z "${SINGBOX_BIN}" ] && _need_bin="sing-box"
+		[ -n "${_need_bin}" ] && {
+			log 0 "missing core-bin: ${_need_bin} not found, node [$(config_n_get $node remarks)] is not started, please install it on the App Update page."
+			_core_miss=1
+			continue
+		}
 		if [ "${type}" = "xray" ] && [ -n "${XRAY_BIN}" ]; then
 			run_func="run_xray"
 		elif [ "${type}" = "sing-box" ] && [ -n "${SINGBOX_BIN}" ]; then
@@ -901,7 +909,11 @@ acl_node() {
 			log 2 "Dnsmasq[${dnsmasq_port}]:(127.0.0.1:${dns_listen_port})"
 		}
 		rm -f ${TMP_ACL_PATH}/acl_node_${nid}
+		_acl_ok=$((_acl_ok + 1))
 	done
+	if [ -n "${_core_miss}" ] && [ "${_acl_ok}" = 0 ]; then
+		log 0 "PassWall2 is not started."
+	fi
 }
 
 start() {

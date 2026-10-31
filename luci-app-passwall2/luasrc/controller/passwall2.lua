@@ -293,7 +293,12 @@ function index_status()
 	name = name and name:lower()
 	e["core_name"] = name and coms[name] and coms[name].name or nil
 	if not e["global_status"] then
-		e["core_missing"] = not api.finded_com("xray") and not api.finded_com("sing-box")
+		if name == "xray" or name == "sing-box" then
+			-- A node runs on the core of its own type only.
+			e["core_missing"] = not api.finded_com(name)
+		else
+			e["core_missing"] = not api.finded_com("xray") and not api.finded_com("sing-box")
+		end
 	end
 	http_write_json(e)
 end
