@@ -88,6 +88,10 @@
 	justify-content: space-between;
 	box-sizing: border-box;
 }
+/* 使用控件自带箭头，清除主题背景箭头 */
+.lv-dropdown-display.cbi-input-select {
+	background-image: none !important;
+}
 .lv-dropdown-label {
 	display: inline-block;
 	flex: 1 1 auto;
@@ -114,7 +118,7 @@
 	overscroll-behavior: contain;
 }
 .lv-dropdown-search {
-	width: 100%;
+	width: 100% !important;
 	max-width: 100% !important;
 	min-width: 0 !important;
 	box-sizing: border-box;
@@ -260,10 +264,10 @@
 			const panelRadius = styleSelect.borderRadius;
 			const optionColor = !lv_isTransparent(styleOption.backgroundColor) ? styleOption.backgroundColor : !lv_isTransparent(styleSelect.backgroundColor) ? styleSelect.backgroundColor : styleBody.backgroundColor
 			const titleColor = lv_getColorSchema(optionColor) === "light" ? lv_darker(optionColor, 30) : lv_lighter(optionColor, 30)
-			// the div draws its own arrow, so use symmetric horizontal padding instead of the room a native select reserves for its arrow.
+			// 自带箭头已占据布局空间，左右内边距对称，不再保留原生 select 为箭头预留的空间
 			// Some themes (e.g. Bootstrap) rely on the browser's built-in inner padding and set only ~4px, which looks cramped on a div, so keep a minimum.
 			const padX = Math.max(parseFloat(styleSelect.paddingLeft) || 0, 8) + "px";
-			const selectStyleCSS = [`#${CSS.escape(cbid + ".display")} {`, lv_style2Css(styleSelect, styleNames), lv_style2Css(styleSelect, ["backgroundColor"]), `padding-left: ${padX}; padding-right: ${padX};`, "}"]
+			const selectStyleCSS = [`#${CSS.escape(cbid + ".display")} {`, lv_style2Css(styleSelect, styleNames), lv_style2Css(styleSelect, ["backgroundColor"]), `padding-left: ${padX}; padding-right: ${padX} !important;`, "}"]
 			const optionStyleCSS = [`#${CSS.escape(cbid + ".panel")}  {`, lv_style2Css(styleOption, styleNames), `background-color: ${optionColor};`, `border-radius: ${panelRadius};`, "}"]
 			const titleStyleCSS = [`#${CSS.escape(cbid + ".panel")} .lv-group-title  {`, `background-color: ${titleColor} !important;`, "}"]
 			styleNode.textContent = [].concat(selectStyleCSS, optionStyleCSS, titleStyleCSS).join("\n")
