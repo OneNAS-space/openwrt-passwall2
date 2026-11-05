@@ -1,4 +1,4 @@
-From 24b101913d4e000b1c88ea7eefa5fbd03e380946 Mon Sep 17 00:00:00 2001
+From b8ee4a8ea1820febe230962e863f16118e9bb5a9 Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
 Date: Fri, 30 Oct 2026 21:41:27 +0800
 Subject: [PATCH] nodes_listvalue: use CSS ellipsis for label text
@@ -6,14 +6,14 @@ Subject: [PATCH] nodes_listvalue: use CSS ellipsis for label text
 Remove the custom ellipsis handling for label text and rely on CSS for
 text overflow.
 ---
- .../passwall2/cbi/nodes_listvalue_com.htm     | 67 ++++---------------
- 1 file changed, 12 insertions(+), 55 deletions(-)
+ .../passwall2/cbi/nodes_listvalue_com.htm     | 68 ++++---------------
+ 1 file changed, 12 insertions(+), 56 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm b/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
-index 2a06628..d6568ad 100644
+index ad8ce39..3afb385 100644
 --- a/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
 +++ b/luci-app-passwall2/luasrc/view/passwall2/cbi/nodes_listvalue_com.htm
-@@ -90,11 +90,17 @@
+@@ -94,11 +94,17 @@
  }
  .lv-dropdown-label {
  	display: inline-block;
@@ -31,19 +31,20 @@ index 2a06628..d6568ad 100644
  .lv-dropdown-panel {
  	position: fixed;
  	top: 0;
-@@ -254,7 +260,10 @@
+@@ -258,8 +264,10 @@
  			const panelRadius = styleSelect.borderRadius;
  			const optionColor = !lv_isTransparent(styleOption.backgroundColor) ? styleOption.backgroundColor : !lv_isTransparent(styleSelect.backgroundColor) ? styleSelect.backgroundColor : styleBody.backgroundColor
  			const titleColor = lv_getColorSchema(optionColor) === "light" ? lv_darker(optionColor, 30) : lv_lighter(optionColor, 30)
--			const selectStyleCSS = [`#${CSS.escape(cbid + ".display")} {`, lv_style2Css(styleSelect, styleNames), lv_style2Css(styleSelect, ["backgroundColor"]), "}"]
-+			// the div draws its own arrow, so use symmetric horizontal padding instead of the room a native select reserves for its arrow.
+-			// 自带箭头已占据布局空间，右内边距使用主题的左内边距
+-			const selectStyleCSS = [`#${CSS.escape(cbid + ".display")} {`, lv_style2Css(styleSelect, styleNames), lv_style2Css(styleSelect, ["backgroundColor"]), `padding-right: ${styleSelect.paddingLeft} !important;`, "}"]
++			// 自带箭头已占据布局空间，左右内边距对称，不再保留原生 select 为箭头预留的空间
 +			// Some themes (e.g. Bootstrap) rely on the browser's built-in inner padding and set only ~4px, which looks cramped on a div, so keep a minimum.
 +			const padX = Math.max(parseFloat(styleSelect.paddingLeft) || 0, 8) + "px";
-+			const selectStyleCSS = [`#${CSS.escape(cbid + ".display")} {`, lv_style2Css(styleSelect, styleNames), lv_style2Css(styleSelect, ["backgroundColor"]), `padding-left: ${padX}; padding-right: ${padX};`, "}"]
++			const selectStyleCSS = [`#${CSS.escape(cbid + ".display")} {`, lv_style2Css(styleSelect, styleNames), lv_style2Css(styleSelect, ["backgroundColor"]), `padding-left: ${padX}; padding-right: ${padX} !important;`, "}"]
  			const optionStyleCSS = [`#${CSS.escape(cbid + ".panel")}  {`, lv_style2Css(styleOption, styleNames), `background-color: ${optionColor};`, `border-radius: ${panelRadius};`, "}"]
  			const titleStyleCSS = [`#${CSS.escape(cbid + ".panel")} .lv-group-title  {`, `background-color: ${titleColor} !important;`, "}"]
  			styleNode.textContent = [].concat(selectStyleCSS, optionStyleCSS, titleStyleCSS).join("\n")
-@@ -682,52 +691,9 @@
+@@ -687,52 +695,9 @@
  		}, { passive: false });
  	}
  
@@ -98,7 +99,7 @@ index 2a06628..d6568ad 100644
  	}
  
  	const lv_adaptiveControls = new Set();
-@@ -735,14 +701,6 @@
+@@ -740,14 +705,6 @@
  		lv_adaptiveControls.add(cbid);
  		lv_adaptiveStyle(cbid);
  	}
@@ -113,7 +114,7 @@ index 2a06628..d6568ad 100644
  	let lv_adaptiveTicking = false;
  	window.addEventListener("resize", () => {
  		if (!lv_adaptiveTicking) {
-@@ -750,7 +708,6 @@
+@@ -755,7 +712,6 @@
  			requestAnimationFrame(() => {
  				lv_adaptiveControls.forEach(cbid => {
  					lv_adaptiveStyle(cbid);
@@ -123,4 +124,3 @@ index 2a06628..d6568ad 100644
  			});
 -- 
 2.43.0
-
