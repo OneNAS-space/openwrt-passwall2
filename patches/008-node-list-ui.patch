@@ -1,4 +1,4 @@
-From 75311a392ad040b553ec2065f16eb3f4ada84707 Mon Sep 17 00:00:00 2001
+From a83f60b5be8c69baa75778b7811ac60f19f357cb Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
 Date: Fri, 30 Oct 2026 21:41:27 +0800
 Subject: [PATCH] node_list: improve padding, encoding and escaping
@@ -10,10 +10,10 @@ JavaScript that handles URLs and node actions.
  1 file changed, 194 insertions(+), 42 deletions(-)
 
 diff --git a/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm b/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
-index f9d72ba..a5afeaa 100644
+index 38f50b8..8138a59 100644
 --- a/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
 +++ b/luci-app-passwall2/luasrc/view/passwall2/node_list/node_list.htm
-@@ -405,10 +405,21 @@ table td, .table .td {
+@@ -487,10 +487,21 @@ table td, .table .td {
  		max-height: none !important;
  		font: inherit !important;
  		line-height: 1.2 !important;
@@ -36,7 +36,7 @@ index f9d72ba..a5afeaa 100644
  	.pw-filter .pw-filter-count {
  		opacity: 0.8;
  	}
-@@ -492,7 +503,7 @@ table td, .table .td {
+@@ -574,7 +585,7 @@ table td, .table .td {
  					var json = null;
  					if (xhr.getResponseHeader("Content-Type") == "application/json") {
  						try {
@@ -45,7 +45,7 @@ index f9d72ba..a5afeaa 100644
  						}
  						catch(e) {
  							json = null;
-@@ -535,22 +546,25 @@ table td, .table .td {
+@@ -617,22 +628,25 @@ table td, .table .td {
  				const master = document.getElementById("node_list");
  				const dom = master.getElementsByClassName("cbi-tab")[0];
  				const current_group = dom ? (dom.getAttribute("group_name") || "default") : "default";
@@ -76,7 +76,7 @@ index f9d72ba..a5afeaa 100644
  				const parent = row.parentNode;
  				let firstDataRow = parent.querySelector("tr:not(.cbi-section-table-titles)");
  				if (firstDataRow && firstDataRow !== row) {
-@@ -957,7 +971,7 @@ table td, .table .td {
+@@ -1039,7 +1053,7 @@ table td, .table .td {
  	// List drag and rearrange
  	function initSortableForTable(table) {
  		if (!table) return null;
@@ -85,7 +85,7 @@ index f9d72ba..a5afeaa 100644
  		var root = table.querySelector('tbody') || table;
  		if (root._sortable_initialized) return root._sortable_instance;
  		root._sortable_initialized = true;
-@@ -1008,8 +1022,11 @@ table td, .table .td {
+@@ -1090,8 +1104,11 @@ table td, .table .td {
  		}
  	}
  
@@ -98,7 +98,7 @@ index f9d72ba..a5afeaa 100644
  			"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
  		}[c]));
  	}
-@@ -1128,6 +1145,35 @@ table td, .table .td {
+@@ -1210,6 +1227,35 @@ table td, .table .td {
  			: null;
  	}
  
@@ -134,7 +134,7 @@ index f9d72ba..a5afeaa 100644
  	const add_link_div = {
  		open() {
  			document.body.classList.add('modal-open');
-@@ -1145,34 +1191,69 @@ table td, .table .td {
+@@ -1227,34 +1273,69 @@ table td, .table .td {
  			document.body.classList.remove('modal-open');
  		},
  		add_node() {
@@ -218,7 +218,7 @@ index f9d72ba..a5afeaa 100644
  					const xhr = new XMLHttpRequest();
  					xhr.open('POST', '<%=api.url("link_add_node")%>', true);
  					xhr.onload = function () {
-@@ -1210,7 +1291,7 @@ table td, .table .td {
+@@ -1292,7 +1373,7 @@ table td, .table .td {
  	const reassign_group_div = {
  		open() {
  			const ids = [];
@@ -227,7 +227,7 @@ index f9d72ba..a5afeaa 100644
  			if (!visibleContainer) return;
  			const doms = visibleContainer.getElementsByClassName("nodes_select");
  			if (doms && doms.length > 0) {
-@@ -1240,7 +1321,7 @@ table td, .table .td {
+@@ -1322,7 +1403,7 @@ table td, .table .td {
  		action() {
  			const ids = [];
  			const group = get_group_value("reassign_group_custom");
@@ -236,7 +236,7 @@ index f9d72ba..a5afeaa 100644
  			if (!visibleContainer) return;
  			const doms = visibleContainer.getElementsByClassName("nodes_select");
  			if (doms && doms.length > 0) {
-@@ -1282,7 +1363,7 @@ table td, .table .td {
+@@ -1366,7 +1447,7 @@ table td, .table .td {
  		set(type, config) {
  			if (confirm('<%:Are you sure set this node?%>') == true){
  				ajax.abortAll();
@@ -245,7 +245,7 @@ index f9d72ba..a5afeaa 100644
  			}
  		}
  	}
-@@ -1339,7 +1420,7 @@ table td, .table .td {
+@@ -1423,7 +1504,7 @@ table td, .table .td {
  		<td class="td cbi-value-field pw-urltest">{{url_test}}</td>
  		<td class="td cbi-section-table-cell nowrap cbi-section-actions pw-actions">
  			<div class="node-wrapper">
@@ -254,7 +254,7 @@ index f9d72ba..a5afeaa 100644
  				<input class="btn cbi-button cbi-button-apply" type="button" value="<%:Use%>" id="apply_{{id}}" onclick="set_node_div.open('{{id}}')"/>
  				<input class="btn cbi-button cbi-button-add" type="button" value="<%:Copy%>" onclick="node_action('copy', '{{id}}')"/>
  				<input class="btn cbi-button cbi-button-edit" type="button" value="<%:Edit%>" onclick="node_action('edit', '{{id}}')" alt="<%:Edit%>" title="<%:Edit%>">
-@@ -1381,11 +1462,68 @@ table td, .table .td {
+@@ -1465,11 +1546,68 @@ table td, .table .td {
  	if (window.pw2NodeSort)
  		pw2NodeSort.init();
  
@@ -324,7 +324,7 @@ index f9d72ba..a5afeaa 100644
  		if (type == "sing-box" || type == "Xray") {
  			let protocol = o["protocol"]
  			let p = "";
-@@ -1433,10 +1571,11 @@ table td, .table .td {
+@@ -1517,10 +1655,11 @@ table td, .table .td {
  		} else {
  			port_s = o["hysteria_hop"] || o["hysteria2_hop"];
  		}
@@ -338,7 +338,7 @@ index f9d72ba..a5afeaa 100644
  		}
  		return str;
  	}
-@@ -1471,7 +1610,7 @@ table td, .table .td {
+@@ -1555,7 +1694,7 @@ table td, .table .td {
  					//Node List
  					var new_nodes_table_dom = nodes_table_template.cloneNode(true);
  					var _html = new_nodes_table_dom.innerHTML;
@@ -347,7 +347,7 @@ index f9d72ba..a5afeaa 100644
  					var node_tr_html = "";
  					for (var i = 0; i < group_nodes[group].length; i++) {
  						let o = group_nodes[group][i]
-@@ -1493,23 +1632,24 @@ table td, .table .td {
+@@ -1577,23 +1716,24 @@ table td, .table .td {
  						} else {
  							innerHTML = innerHTML.split("{{url_test}}").join('<span class="ping_value"><a href="javascript:void(0)" style="color:inherit">---</a></span>');
  						}
@@ -379,7 +379,7 @@ index f9d72ba..a5afeaa 100644
  
  						node_tr_html += innerHTML
  					}
-@@ -1522,12 +1662,15 @@ table td, .table .td {
+@@ -1606,12 +1746,15 @@ table td, .table .td {
  					group_name = "<%:default%>"
  				}
  
@@ -398,7 +398,7 @@ index f9d72ba..a5afeaa 100644
  					'' + table_html +
  					'</div>'
  			}
-@@ -1548,6 +1691,14 @@ table td, .table .td {
+@@ -1632,6 +1775,14 @@ table td, .table .td {
  
  			document.getElementById("node_list").innerHTML = addTabDOM(tab_ul_li_html, tab_content_html);
  
@@ -413,7 +413,7 @@ index f9d72ba..a5afeaa 100644
  			for (let group in group_nodes) {
  				cbi_t_add("<%=appname%>.nodes", group)
  			}
-@@ -1583,6 +1734,7 @@ table td, .table .td {
+@@ -1667,6 +1818,7 @@ table td, .table .td {
  			pingAllNodes();
  			if (window.pw2NodeSort)
  				pw2NodeSort.enhanceAll();
@@ -421,12 +421,12 @@ index f9d72ba..a5afeaa 100644
  		});
  	}
  
-@@ -1730,7 +1882,7 @@ table td, .table .td {
+@@ -1818,7 +1970,7 @@ table td, .table .td {
  			<%- if #shunt_rule_list > 0 then
  				for i, v in ipairs(shunt_rule_list) do
  			-%>
--				<input class="btn cbi-button" type="button" onclick="set_node_div.set('<%=node%>', '<%=v[".name"]%>')" value="<%=v.remarks%>" />
-+				<input class="btn cbi-button" type="button" onclick="set_node_div.set('<%=node%>', '<%=v[".name"]%>')" value="<%=pcdata(v.remarks)%>" />
+-				<input class="btn cbi-button cbi-button-edit" type="button" onclick="set_node_div.set('<%=node%>', '<%=v[".name"]%>')" value="<%=v.remarks%>" />
++				<input class="btn cbi-button cbi-button-edit" type="button" onclick="set_node_div.set('<%=node%>', '<%=v[".name"]%>')" value="<%=pcdata(v.remarks)%>" />
  			<%-
  				end
  			-%>
