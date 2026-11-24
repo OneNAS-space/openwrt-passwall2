@@ -166,8 +166,10 @@ o.write = function(self, section, value)
 	local old = m:get(section, self.option) or ""
 	if old ~= value then
 		m:foreach("nodes", function(e)
-			if e["group"] and e["group"]:lower() == old:lower() then
-				m:set(e[".name"], "group", value)
+			-- Nodes in a region group keep the name of their subscription in sub_src.
+			local field = (e["sub_src"] and e["sub_src"] ~= "") and "sub_src" or "group"
+			if e[field] and e[field]:lower() == old:lower() then
+				m:set(e[".name"], field, value)
 			end
 			if e["protocol"] and (e["protocol"] == "_balancing" or e["protocol"] == "_urltest") and e["node_group"] then
 				local gs = ""
@@ -198,7 +200,8 @@ o.cfgvalue = function(t, n)
 	str = str ~= "" and "<br>" .. str or ""
 	local num = 0
 	m:foreach("nodes", function(s)
-		if s["group"] and s["group"]:lower() == remark:lower() then
+		local sub = (s["sub_src"] and s["sub_src"] ~= "") and s["sub_src"] or s["group"]
+		if sub and sub:lower() == remark:lower() then
 			num = num + 1
 		end
 	end)

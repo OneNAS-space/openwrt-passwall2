@@ -617,7 +617,8 @@ function delete_select_nodes()
 			end
 		end)
 		if (uci_get(w, "add_mode") or "0") == "2" then
-			local group = uci_get(w, "group") or ""
+			local group = uci_get(w, "sub_src") or ""
+			if group == "" then group = uci_get(w, "group") or "" end
 			if group ~= "" then
 				uci_foreach("subscribe_list", function(t)
 					if t["remark"] == group then

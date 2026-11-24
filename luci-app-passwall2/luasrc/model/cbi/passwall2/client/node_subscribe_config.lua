@@ -89,8 +89,10 @@ o.write = function(self, section, value)
 	local old = m:get(section, self.option) or ""
 	if old ~= value then
 		m:foreach("nodes", function(e)
-			if e["group"] and e["group"]:lower() == old:lower() then
-				self.map:set(e[".name"], "group", value)
+			-- Nodes in a region group keep the name of their subscription in sub_src.
+			local field = (e["sub_src"] and e["sub_src"] ~= "") and "sub_src" or "group"
+			if e[field] and e[field]:lower() == old:lower() then
+				self.map:set(e[".name"], field, value)
 			end
 			if e["protocol"] and (e["protocol"] == "_balancing" or e["protocol"] == "_urltest") and e["node_group"] then
 				local gs = ""
@@ -174,6 +176,16 @@ o = s:option(DynamicList, "filter_keep_list", translate("Keep List"))
 o:depends("filter_keyword_mode", "2")
 o:depends("filter_keyword_mode", "3")
 o:depends("filter_keyword_mode", "4")
+
+o = s:option(Flag, "region_group", translate("Group Nodes by Region"))
+o.default = 0
+o.description = translate("Put the nodes of this subscription into one group per region (HK, JP, US ...), recognized from the node remarks.") .. "<br>" ..
+		translate("Nodes whose region cannot be recognized stay in the group named after the subscription. Takes effect at the next subscription update.")
+
+o = s:option(Flag, "region_balancing", translate("Generate Region Balancing Nodes"))
+o.default = 0
+o:depends("region_group", "1")
+o.description = translate("Create an Xray load balancing node for every region that has nodes. An existing Xray batch balancing node with the region code as its remarks is kept; the region is added to its node group.")
 
 if #ss_type > 0 then
 	o = s:option(ListValue, "ss_type", translatef("%s Node Use Type", "Shadowsocks"))
