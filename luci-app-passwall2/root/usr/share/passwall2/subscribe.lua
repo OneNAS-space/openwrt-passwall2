@@ -35,6 +35,9 @@ local function flush_log_buffer()
 end
 local i18n = api.i18n
 local uci, uci_get, uci_set, uci_del, uci_foreach, uci_save = api.uci, api.uci_get_c, api.uci_set_c, api.uci_del_c, api.uci_foreach_c, api.uci_save_c
+-- Nodes of a subscription may sit in a region group; sub_of() gives the subscription they belong to.
+local region = require "luci.passwall2.region"
+local sub_of = region.sub_of
 
 -- these global functions are accessed all the time by the event handler
 -- so caching them is worth the effort
@@ -1944,7 +1947,7 @@ local function truncate_nodes(group)
 			local removeNodesSet = {}
 			for k, v in pairs(config.currentNodes) do
 				if v.currentNode and v.currentNode.add_mode == "2" then
-					if (not group) or (group:lower() == (v.currentNode.group or ""):lower()) then
+					if (not group) or (group:lower() == (sub_of(v.currentNode) or ""):lower()) then
 						removeNodesSet[v.currentNode[".name"]] = true
 					end
 				end
@@ -1959,7 +1962,7 @@ local function truncate_nodes(group)
 			end
 		else
 			if config.currentNode and config.currentNode.add_mode == "2" then
-				if (not group) or (group:lower() == (config.currentNode.group or ""):lower()) then
+				if (not group) or (group:lower() == (sub_of(config.currentNode) or ""):lower()) then
 					if config.delete then
 						config.delete(config)
 					elseif config.set then
@@ -1971,7 +1974,7 @@ local function truncate_nodes(group)
 	end
 	uci_foreach("nodes", function(node)
 		if node.add_mode == "2" then
-			if (not group) or (group:lower() == (node.group or ""):lower()) then
+			if (not group) or (group:lower() == (sub_of(node) or ""):lower()) then
 				uci_del(node['.name'])
 			end
 		end
@@ -2026,7 +2029,7 @@ local function select_node(nodes, config, parentConfig)
 			for index, node in pairs(nodes) do
 				if config.currentNode.type and config.currentNode.remarks and config.currentNode.address and config.currentNode.port then
 					if node.type and node.remarks and node.address and node.port then
-						if node.type == config.currentNode.type and node.remarks == config.currentNode.remarks and (node.address .. ':' .. node.port == config.currentNode.address .. ':' .. config.currentNode.port) and node.group == config.currentNode.group then
+						if node.type == config.currentNode.type and node.remarks == config.currentNode.remarks and (node.address .. ':' .. node.port == config.currentNode.address .. ':' .. config.currentNode.port) and sub_of(node) == sub_of(config.currentNode) then
 							if config.log == nil or config.log == true then
 								log(log_level, i18n.translatef("Update [%s]", config.remarks) .. " " .. i18n.translatef("First Matching node:") .. " " .. node.remarks)
 							end
@@ -2042,7 +2045,7 @@ local function select_node(nodes, config, parentConfig)
 			for index, node in pairs(nodes) do
 				if config.currentNode.type and config.currentNode.address and config.currentNode.port then
 					if node.type and node.address and node.port then
-						if node.type == config.currentNode.type and (node.address .. ':' .. node.port == config.currentNode.address .. ':' .. config.currentNode.port) and node.group == config.currentNode.group then
+						if node.type == config.currentNode.type and (node.address .. ':' .. node.port == config.currentNode.address .. ':' .. config.currentNode.port) and sub_of(node) == sub_of(config.currentNode) then
 							if config.log == nil or config.log == true then
 								log(log_level, i18n.translatef("Update [%s]", config.remarks) .. " " .. i18n.translatef("Second Matching node:") .. " " .. node.remarks)
 							end
@@ -2058,7 +2061,7 @@ local function select_node(nodes, config, parentConfig)
 			for index, node in pairs(nodes) do
 				if config.currentNode.address and config.currentNode.port then
 					if node.address and node.port then
-						if node.address .. ':' .. node.port == config.currentNode.address .. ':' .. config.currentNode.port and node.group == config.currentNode.group then
+						if node.address .. ':' .. node.port == config.currentNode.address .. ':' .. config.currentNode.port and sub_of(node) == sub_of(config.currentNode) then
 							if config.log == nil or config.log == true then
 								log(log_level, i18n.translatef("Update [%s]", config.remarks) .. " " .. i18n.translatef("Third Matching node:") .. " " .. node.remarks)
 							end
@@ -2074,7 +2077,7 @@ local function select_node(nodes, config, parentConfig)
 			for index, node in pairs(nodes) do
 				if config.currentNode.address then
 					if node.address then
-						if node.address == config.currentNode.address and node.group == config.currentNode.group then
+						if node.address == config.currentNode.address and sub_of(node) == sub_of(config.currentNode) then
 							if config.log == nil or config.log == true then
 								log(log_level, i18n.translatef("Update [%s]", config.remarks) .. " " .. i18n.translatef("Fourth Matching node:") .. " " .. node.remarks)
 							end
@@ -2090,7 +2093,7 @@ local function select_node(nodes, config, parentConfig)
 			for index, node in pairs(nodes) do
 				if config.currentNode.remarks then
 					if node.remarks then
-						if node.remarks == config.currentNode.remarks and node.group == config.currentNode.group then
+						if node.remarks == config.currentNode.remarks and sub_of(node) == sub_of(config.currentNode) then
 							if config.log == nil or config.log == true then
 								log(log_level, i18n.translatef("Update [%s]", config.remarks) .. " " .. i18n.translatef("Fifth Matching node:") .. " " .. node.remarks)
 							end
@@ -2163,7 +2166,8 @@ local function update_node(manual)
 	if manual == 0 and next(group) then
 		uci_foreach("nodes", function(node)
 			-- Do not delete nodes if no new nodes are found or nodes were manually imported...
-			if node.add_mode == "2" and (node.group and group[node.group:lower()] == true) then
+			local sub = sub_of(node)
+			if node.add_mode == "2" and (sub and group[sub:lower()] == true) then
 				uci_del(node['.name'])
 			end
 		end)
@@ -2244,6 +2248,8 @@ local function update_node(manual)
 				if type(value) == "number" then value = value .. "" end
 				values[key] = #value > 0 and value or nil
 			end
+			-- Put the node into its region group (subscriptions with region grouping only).
+			region.tag(values, sub_cfg)
 			-- Create each node with one values table; both ubus and native UCI support this interface.
 			uci:section(c_config, "nodes", api.gen_random_char(), values)
 		end
@@ -2461,6 +2467,11 @@ local execute = function()
 						local doh = protocol == "https" and value.domain_resolver_dns_https or ""
 						md5_content = md5_content .. jsonStringify({protocol, dns or "", doh or ""})
 					end
+					-- A changed region setting must be applied even if the nodes are the same.
+					local region_md5 = region.md5_extra(value)
+					if region_md5 then
+						md5_content = md5_content .. jsonStringify(region_md5)
+					end
 					local new_md5 = #parsed_nodes > 0 and api.md5_string(md5_content) or ""
 					-- Skip rewriting nodes only when both nodes and effective DNS are unchanged.
 					if not manual_sub and new_md5 ~= "" and old_md5 == new_md5 then
@@ -2494,12 +2505,14 @@ local execute = function()
 			end
 		end
 		local nodes_changed = update_node(0)
+		if nodes_changed then region.sync_balancing() end
 		local info_changed = update_subscribe_info()
 		-- Save nodes, references and their MD5 in the same commit.
 		for _, result in ipairs(nodeResult) do
 			uci_set(result.sub_cfg[".name"], "md5", result.md5)
 		end
 		if nodes_changed or next(info_changed) then
+			region.backup()
 			uci_save(true)
 			restart_required = nodes_changed
 			for _, value in ipairs(subscribe_list) do
