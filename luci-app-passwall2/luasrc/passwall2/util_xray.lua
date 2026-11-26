@@ -29,6 +29,21 @@ local function get_domain_excluded()
 	return hosts
 end
 
+local function get_https_allow_domains()
+	local path = "/usr/share/passwall2/dns_https_allow"
+	local content = fs.readfile(path)
+	if not content then return nil end
+	local domains = {}
+	string.gsub(content, '[^' .. "\n" .. ']+', function(w)
+		local s = api.trim(w)
+		if s == "" then return end
+		if s:find("#") == 1 then return end
+		table.insert(domains, s)
+	end)
+	if #domains == 0 then domains = nil end
+	return domains
+end
+
 local function get_log_level(s)
 	if s == "warn" then s = "warning" end
 	return s
@@ -1869,6 +1884,16 @@ function gen_config(var)
 					sockopt = { dialerProxy = "direct" }
 				}
 			}
+			local https_allow_domains = get_https_allow_domains()
+			if https_allow_domains then
+				-- Insert before the "qType = 65 -> return" rule (index 2), so HTTPS/SVCB queries
+				-- of the listed domains are forwarded to the direct DNS instead of being blocked.
+				table.insert(direct_type_dns.settings.rules, 2, {
+					qType = 65,
+					action = "direct",
+					domain = https_allow_domains
+				})
+			end
 			local remote_type_dns = {
 				settings = {
 					rewriteAddress = remote_dns_udp_server,
