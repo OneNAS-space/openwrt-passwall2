@@ -30,11 +30,13 @@ local function get_domain_excluded()
 end
 
 local function get_https_allow_domains()
-	local path = "/usr/share/passwall2/dns_https_allow"
-	local content = fs.readfile(path)
+	local content = api.uci_get_c("@global[0]", "dns_https_allow")
+	if not content or content == "" then
+		content = fs.readfile("/usr/share/passwall2/dns_https_allow")
+	end
 	if not content then return nil end
 	local domains = {}
-	string.gsub(content, '[^' .. "\n" .. ']+', function(w)
+	string.gsub(content, '[^' .. "\r\n" .. ']+', function(w)
 		local s = api.trim(w)
 		if s == "" then return end
 		if s:find("#") == 1 then return end
