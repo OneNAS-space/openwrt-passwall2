@@ -1,0 +1,18 @@
+From 72829fc4b231201e241a0f741dc2021021a93f4a Mon Sep 17 00:00:00 2001
+From: Jackie Han <jackie.han@gmail.com>
+Date: Thu, 26 Nov 2026 16:29:19 +0800
+Subject: [PATCH] Create dns_https_allow for domain settings
+
+Add dns_https_allow file for domain configuration
+---
+ luci-app-passwall2/root/usr/share/passwall2/dns_https_allow | 1 +
+ 1 file changed, 1 insertion(+)
+ create mode 100644 luci-app-passwall2/root/usr/share/passwall2/dns_https_allow
+
+diff --git a/luci-app-passwall2/root/usr/share/passwall2/dns_https_allow b/luci-app-passwall2/root/usr/share/passwall2/dns_https_allow
+new file mode 100644
+index 00000000..be1ea88e
+--- /dev/null
++++ b/luci-app-passwall2/root/usr/share/passwall2/dns_https_allow
+@@ -0,0 +1 @@
++# 每行一个域名,支持 domain: / full: 前缀,# 开头为注释
