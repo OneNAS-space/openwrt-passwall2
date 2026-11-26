@@ -282,6 +282,12 @@ o.remove = function(self, section)
 	end
 end
 
+o = s:taboption("DNS", TextValue, "dns_https_allow", "HTTPS/SVCB 记录放行名单",
+	"名单内域名的 HTTPS/SVCB(TYPE65)查询会转发到直连 DNS,不再被拦截。每行一个,支持 domain: / full: 前缀,# 开头为注释。仅 Xray 生效,且只应填写走直连的域名。")
+o.rows = 5
+o.wrap = "off"
+o.placeholder = "domain:example.com"
+
 o = s:taboption("DNS", Flag, "dns_redirect", translate("DNS Redirect"), translate("Force special DNS server to need proxy devices."))
 o.default = "1"
 o.rmempty = false
