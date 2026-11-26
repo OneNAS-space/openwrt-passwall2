@@ -1,0 +1,27 @@
+From 0cb3511abe59fc9c652bff0d025472d5a4acc637 Mon Sep 17 00:00:00 2001
+From: Jackie Han <jackie.han@gmail.com>
+Date: Thu, 26 Nov 2026 16:48:48 +0800
+Subject: [PATCH] Implement DNS HTTPS/SVCB allow list option
+
+Add option to allow specific HTTPS/SVCB records through DNS.
+---
+ .../luasrc/model/cbi/passwall2/client/global.lua            | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/luci-app-passwall2/luasrc/model/cbi/passwall2/client/global.lua b/luci-app-passwall2/luasrc/model/cbi/passwall2/client/global.lua
+index 2304c288..13dab7a6 100644
+--- a/luci-app-passwall2/luasrc/model/cbi/passwall2/client/global.lua
++++ b/luci-app-passwall2/luasrc/model/cbi/passwall2/client/global.lua
+@@ -282,6 +282,12 @@ o.remove = function(self, section)
+ 	end
+ end
+ 
++o = s:taboption("DNS", TextValue, "dns_https_allow", "HTTPS/SVCB 记录放行名单",
++	"名单内域名的 HTTPS/SVCB(TYPE65)查询会转发到直连 DNS,不再被拦截。每行一个,支持 domain: / full: 前缀,# 开头为注释。仅 Xray 生效,且只应填写走直连的域名。")
++o.rows = 5
++o.wrap = "off"
++o.placeholder = "domain:example.com"
++
+ o = s:taboption("DNS", Flag, "dns_redirect", translate("DNS Redirect"), translate("Force special DNS server to need proxy devices."))
+ o.default = "1"
+ o.rmempty = false
