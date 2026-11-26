@@ -1,27 +1,29 @@
-From 1b37444cfbf447281e6dbb9955eaece02da536ac Mon Sep 17 00:00:00 2001
+From 1a818a90c04f10798761794f3d1de8347b044e72 Mon Sep 17 00:00:00 2001
 From: Jackie Han <jackie.han@gmail.com>
-Date: Thu, 26 Nov 2026 16:20:21 +0800
-Subject: [PATCH] Implement get_https_allow_domains function
+Date: Thu, 26 Nov 2026 17:29:18 +0800
+Subject: [PATCH] Implement HTTPS allow domains retrieval function
 
-Add function to retrieve allowed HTTPS domains from a file.
+Add function to retrieve allowed HTTPS domains for DNS.
 ---
- .../luasrc/passwall2/util_xray.lua            | 25 +++++++++++++++++++
- 1 file changed, 25 insertions(+)
+ .../luasrc/passwall2/util_xray.lua            | 27 +++++++++++++++++++
+ 1 file changed, 27 insertions(+)
 
 diff --git a/luci-app-passwall2/luasrc/passwall2/util_xray.lua b/luci-app-passwall2/luasrc/passwall2/util_xray.lua
-index 142bc58d..06272d86 100644
+index 142bc58d..fb8cc8f7 100644
 --- a/luci-app-passwall2/luasrc/passwall2/util_xray.lua
 +++ b/luci-app-passwall2/luasrc/passwall2/util_xray.lua
-@@ -29,6 +29,21 @@ local function get_domain_excluded()
+@@ -29,6 +29,23 @@ local function get_domain_excluded()
  	return hosts
  end
  
 +local function get_https_allow_domains()
-+	local path = "/usr/share/passwall2/dns_https_allow"
-+	local content = fs.readfile(path)
++	local content = api.uci_get_c("@global[0]", "dns_https_allow")
++	if not content or content == "" then
++		content = fs.readfile("/usr/share/passwall2/dns_https_allow")
++	end
 +	if not content then return nil end
 +	local domains = {}
-+	string.gsub(content, '[^' .. "\n" .. ']+', function(w)
++	string.gsub(content, '[^' .. "\r\n" .. ']+', function(w)
 +		local s = api.trim(w)
 +		if s == "" then return end
 +		if s:find("#") == 1 then return end
@@ -34,7 +36,7 @@ index 142bc58d..06272d86 100644
  local function get_log_level(s)
  	if s == "warn" then s = "warning" end
  	return s
-@@ -1869,6 +1884,16 @@ function gen_config(var)
+@@ -1869,6 +1886,16 @@ function gen_config(var)
  					sockopt = { dialerProxy = "direct" }
  				}
  			}
